@@ -1,0 +1,18 @@
+# =============================================================================
+# MarsaBot_Factory — .gitignore racine
+# Protège les secrets du docker-compose (.env lu à la racine par Compose).
+# =============================================================================
+
+# Fichiers d'environnement & secrets (JWT, mot de passe DB, clé Tavily…)
+.env
+.env.*
+!.env.example
+
+# Fichiers système OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Éditeurs
+.vscode/
+.idea/
