@@ -85,7 +85,12 @@ async function verifierUrlSource(urlBrute) {
     throw erreurClient(`Protocole non autorisé : ${url.protocol.replace(':', '')}. Seuls http et https sont acceptés.`);
   }
 
-  const hote = url.hostname.toLowerCase();
+  // url.hostname conserve les crochets d'une adresse IPv6 litterale
+  // ("[::1]"), que net.isIP ne reconnait pas : on les retire.
+  const hoteBrut = url.hostname.toLowerCase();
+  const hote = hoteBrut.startsWith('[') && hoteBrut.endsWith(']')
+    ? hoteBrut.slice(1, -1)
+    : hoteBrut;
   const hotePort = url.port ? `${hote}:${url.port}` : hote;
 
   // Exception explicite déclarée par l'administrateur
