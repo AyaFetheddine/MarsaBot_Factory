@@ -2,7 +2,7 @@ const { pool } = require('../config/db');
 
 const DEFAULT_SETTINGS = [
   { key: 'ollama_url',           value: 'http://localhost:11434' },
-  { key: 'ollama_default_model', value: 'phi3' },
+  { key: 'ollama_default_model', value: 'llama3.2' },
 ];
 
 /**

@@ -5,6 +5,7 @@ const { TavilySearch } = require('@langchain/tavily');
 const { SystemMessage, HumanMessage } = require('@langchain/core/messages');
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+const DEFAULT_MODEL = 'llama3.2';
 
 function detectLanguageDirective(text) {
   if (/[\u0600-\u06FF\u0750-\u077F]/.test(text)) {
@@ -36,8 +37,12 @@ function isWebQuestion(query) {
   return webKeywords.some(kw => lower.includes(kw));
 }
 
-async function askAgent(userQuery, ragContext, allowWebSearch = false, apiContext = '', chatHistory = '') {
-  const llm = new ChatOllama({ baseUrl: OLLAMA_URL, model: 'llama3.2', temperature: 0.2 });
+async function askAgent(userQuery, ragContext, allowWebSearch = false, apiContext = '', chatHistory = '', options = {}) {
+  // Configuration pilotee par la page Parametres (table system_settings).
+  // A defaut, on retombe sur les variables d'environnement.
+  const baseUrl = options.ollamaUrl || OLLAMA_URL;
+  const model = options.model || DEFAULT_MODEL;
+  const llm = new ChatOllama({ baseUrl, model, temperature: 0.2 });
   const languageDirective = detectLanguageDirective(userQuery);
   let webContext = '';
 
