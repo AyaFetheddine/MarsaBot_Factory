@@ -5,23 +5,65 @@ const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const EMBED_MODEL = 'nomic-embed-text';
 
 /**
- * Découpe un texte en chunks avec chevauchement.
- * L'index avance toujours d'au moins 1 caractère pour éviter toute boucle infinie.
+ * Decoupe un texte en chunks en respectant les frontieres de ligne.
+ *
+ * Une ligne n est jamais coupee en deux : pour un CSV (une ligne = un
+ * enregistrement) chaque enregistrement reste entier, avec son identifiant et
+ * son statut. Le decoupage purement positionnel qui precedait scindait les
+ * lignes en plein milieu, rendant certains enregistrements inexploitables.
+ *
+ * Le recouvrement reprend les dernieres lignes completes du chunk precedent.
+ * Une ligne isolee plus longue que chunkSize est decoupee par caracteres.
+ *
  * @param {string} text        - Texte source
- * @param {number} chunkSize   - Taille max en caractères d'un chunk
- * @param {number} overlap     - Nombre de caractères de chevauchement entre chunks
+ * @param {number} chunkSize   - Taille cible en caracteres d un chunk
+ * @param {number} overlap     - Caracteres de recouvrement entre chunks
  * @returns {string[]}
  */
 function chunkText(text, chunkSize = 1000, overlap = 200) {
   if (!text) return [];
-  const chunks = [];
-  // Sécurité anti-boucle infinie : le pas doit toujours être positif
+
+  const NL = String.fromCharCode(10);
+  // Pas positif garanti meme si overlap >= chunkSize (securite anti-boucle)
   const step = chunkSize - overlap > 0 ? chunkSize - overlap : chunkSize;
-  let i = 0;
-  while (i < text.length) {
-    chunks.push(text.slice(i, i + chunkSize));
-    i += step;
+  const chunks = [];
+  let current = [];   // lignes du chunk en cours
+  let length = 0;     // longueur cumulee, separateurs compris
+
+  const flush = () => { if (current.length) chunks.push(current.join(NL)); };
+
+  for (const line of text.split(NL)) {
+    // Ligne seule trop longue : repli sur un decoupage par caracteres
+    if (line.length > chunkSize) {
+      flush();
+      current = [];
+      length = 0;
+      for (let i = 0; i < line.length; i += step) {
+        chunks.push(line.slice(i, i + chunkSize));
+      }
+      continue;
+    }
+
+    // La ligne ne rentre plus : on ferme le chunk et on prepare le recouvrement
+    if (length + line.length + 1 > chunkSize && current.length) {
+      flush();
+      const carry = [];
+      let carried = 0;
+      for (let i = current.length - 1; i >= 0; i--) {
+        const taille = current[i].length + 1;
+        if (carried + taille > overlap) break;
+        carry.unshift(current[i]);
+        carried += taille;
+      }
+      current = carry;
+      length = carried;
+    }
+
+    current.push(line);
+    length += line.length + 1;
   }
+
+  flush();
   return chunks;
 }
 
@@ -84,15 +126,21 @@ function cosineSimilarity(vecA, vecB) {
 }
 
 /**
- * Cherche les chunks les plus proches sémantiquement de la question dans la base du bot.
+ * Cherche les chunks les plus proches semantiquement de la question.
+ *
+ * La SELECTION se fait par score, mais la RESTITUTION suit l ordre du
+ * document (document_id puis id, tous deux croissants). Sans cela, un
+ * tableau reparti sur plusieurs chunks etait remis au LLM dans le desordre :
+ * la seconde moitie avant la premiere, ce qui lui faisait manquer des lignes.
+ *
  * @param {number[]} questionEmbedding  - Vecteur de la question
  * @param {number|string} botId
- * @param {number} topK                 - Nombre de chunks à retourner
- * @returns {Promise<string>}           - Chunks concatenés séparés par des sauts de ligne
+ * @param {number} topK                 - Nombre de chunks a retenir
+ * @returns {Promise<string>}           - Chunks concatenes, en ordre documentaire
  */
-async function findSimilarChunks(questionEmbedding, botId, topK = 2) {
+async function findSimilarChunks(questionEmbedding, botId, topK = 4) {
   const [rows] = await pool.execute(
-    `SELECT dc.chunk_text, dc.embedding
+    `SELECT dc.id, dc.document_id, dc.chunk_text, dc.embedding
      FROM document_chunks dc
      JOIN documents d ON dc.document_id = d.id
      WHERE d.bot_id = ?`,
@@ -102,19 +150,26 @@ async function findSimilarChunks(questionEmbedding, botId, topK = 2) {
   if (rows.length === 0) return '';
 
   const scored = rows.map((row) => {
-    const embedding = typeof row.embedding === 'string'
+    const embedding = typeof row.embedding === "string"
       ? JSON.parse(row.embedding)
       : row.embedding;
-    const score = cosineSimilarity(questionEmbedding, embedding);
-    return { text: row.chunk_text, score };
+    return {
+      id: row.id,
+      documentId: row.document_id,
+      text: row.chunk_text,
+      score: cosineSimilarity(questionEmbedding, embedding),
+    };
   });
 
-  scored.sort((a, b) => b.score - a.score);
+  // 1. Selection : les topK meilleurs scores
+  const retenus = scored.sort((a, b) => b.score - a.score).slice(0, topK);
 
-  return scored
-    .slice(0, topK)
-    .map((c) => c.text)
-    .join('\n\n');
+  // 2. Restitution : ordre documentaire, pour ne pas presenter un tableau
+  //    ou un texte suivi dans le desordre.
+  retenus.sort((a, b) => (a.documentId - b.documentId) || (a.id - b.id));
+
+  const SEP = String.fromCharCode(10, 10);
+  return retenus.map((c) => c.text).join(SEP);
 }
 
 module.exports = { chunkText, getEmbedding, processAndStoreDocument, cosineSimilarity, findSimilarChunks };

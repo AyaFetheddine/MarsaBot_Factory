@@ -23,7 +23,11 @@ function fileFilter(_req, file, cb) {
   if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Type de fichier non autorisé. Formats acceptés : PDF, TXT, CSV, XLSX.'));
+    // status = 400 : erreur imputable au client, pas au serveur.
+    // Le gestionnaire global d index.js s en sert pour repondre en JSON.
+    const erreur = new Error('Type de fichier non autorisé. Formats acceptés : PDF, TXT, CSV, XLSX.');
+    erreur.status = 400;
+    cb(erreur);
   }
 }
 

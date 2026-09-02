@@ -7,6 +7,7 @@ const { pool } = require('../config/db');
 const vectorService = require('./vectorService');
 const agentService = require('./agentService');
 const { persistMessage, getHistory } = require('./historyService');
+const { verifierUrlSource, verifierRedirection } = require('../utils/urlGuard');
 
 /**
  * Map des clients actifs : botId (string) → { client, status }
@@ -56,6 +57,17 @@ async function initializeWhatsApp(botId, qrCallback) {
         '--disable-gpu',
       ],
     },
+    // Epingle la build de WhatsApp Web. Sans cela, LocalWebCache retombe en
+    // silence sur la derniere build servie par Meta ; celle du 02/09/2026
+    // (2.3000.1046532346) casse l'injection de window.Store et rend le client
+    // sourd aux messages entrants tout en emettant quand meme 'ready'.
+    // strict:true fait echouer bruyamment plutot que de degrader en silence.
+    webVersion: '2.3000.1038499816',
+    webVersionCache: {
+      type: 'local',
+      path: path.join(__dirname, '..', '..', '.wwebjs_cache'),
+      strict: true,
+    },
   });
 
   clients.set(key, { client, status: 'initializing' });
@@ -84,8 +96,10 @@ async function initializeWhatsApp(botId, qrCallback) {
 
   // ── Traitement des messages entrants ──────────────────────────────────────
   client.on('message', async (msg) => {
-    // Ignorer groupes et statuts
-    if (msg.isGroupMsg || msg.from === 'status@broadcast') return;
+    // Ignorer groupes et statuts.
+    // whatsapp-web.js n'expose pas msg.isGroupMsg : l'identifiant d'un groupe
+    // se termine par @g.us, celui d'un contact par @c.us.
+    if (msg.from.endsWith('@g.us') || msg.from === 'status@broadcast') return;
 
     try {
       // 0. Persister le message de l'utilisateur
@@ -100,7 +114,7 @@ async function initializeWhatsApp(botId, qrCallback) {
         settingsMap[setting_key] = setting_value;
       });
       const ollamaUrl = settingsMap['ollama_url'] || 'http://localhost:11434';
-      const defaultModel = settingsMap['ollama_default_model'] || 'phi3';
+      const defaultModel = settingsMap['ollama_default_model'] || 'llama3.2';
 
       // 2. Récupérer la config du bot (allow_general_knowledge)
       const [botRows] = await pool.execute(
@@ -137,9 +151,19 @@ async function initializeWhatsApp(botId, qrCallback) {
                 url.includes('docs.google.com/document') || url.includes('format=txt');
 
               console.log(`🌐 Appel de l'API externe : ${url}`);
+              // Revalidation a l usage : protege aussi les sources
+              // enregistrees avant la mise en place du controle.
+              await verifierUrlSource(url);
+
               const resp = await axios.get(url, {
                 timeout: 5000,
                 responseType: (isGoogleSheetsCsv || isGoogleDocsTxt) ? 'text' : 'json',
+                // Les exports Google Sheets et Docs redirigent : on les suit,
+                // mais chaque saut est verifie pour ne pas atterrir en interne.
+                maxRedirects: 5,
+                beforeRedirect: (options) => {
+                  verifierRedirection(options.protocol, options.hostname, options.port);
+                },
               });
 
               let data;
@@ -214,7 +238,10 @@ async function initializeWhatsApp(botId, qrCallback) {
         .join('\n');
 
       // 6. Appel à l'agent (llama3.2 + Tavily si allowGeneralKnowledge)
-      const finalResponse = await agentService.askAgent(msg.body, retrievedContext, allowGeneralKnowledge, apiContext, chatHistory);
+      const finalResponse = await agentService.askAgent(
+        msg.body, retrievedContext, allowGeneralKnowledge, apiContext, chatHistory,
+        { ollamaUrl, model: defaultModel }
+      );
 
       // 7. Persister la réponse de l'assistant
       await persistMessage(msg.from, key, 'assistant', finalResponse);

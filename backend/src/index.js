@@ -1,6 +1,6 @@
 const express = require('express');
+const multer = require('multer');
 const cors = require('cors');
-const path = require('path');
 require('dotenv').config();
 
 
@@ -22,8 +22,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Fichiers uploadés accessibles publiquement (lecture seule)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Routes
 app.use('/api/admin', adminRoutes);
@@ -38,6 +36,34 @@ app.get('/api/health', (_req, res) => {
     message: "L'API MarsaBot Factory fonctionne correctement !",
     timestamp: new Date().toISOString(),
   });
+});
+
+// Route inconnue : repondre en JSON, pas en HTML
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: 'Route introuvable : ' + req.method + ' ' + req.path });
+});
+
+// Gestionnaire d erreurs global. Doit rester le DERNIER middleware monte.
+// Sans lui, Express repond une page HTML contenant la pile d appels et les
+// chemins absolus du serveur, et le message utile n atteint jamais le client.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  // Erreurs multer : taille depassee, champ inattendu, etc.
+  if (err instanceof multer.MulterError) {
+    const message = err.code === 'LIMIT_FILE_SIZE'
+      ? 'Fichier trop volumineux. Taille maximale : 20 Mo.'
+      : 'Envoi du fichier refuse : ' + err.message;
+    return res.status(400).json({ success: false, message });
+  }
+
+  // Erreurs applicatives marquees comme imputables au client
+  if (err && err.status && err.status < 500) {
+    return res.status(err.status).json({ success: false, message: err.message });
+  }
+
+  // Tout le reste : journalise cote serveur, generique cote client
+  console.error('Erreur non geree :', err);
+  return res.status(500).json({ success: false, message: 'Erreur serveur.' });
 });
 
 // Démarrage du serveur
