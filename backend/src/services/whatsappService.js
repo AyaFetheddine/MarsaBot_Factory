@@ -7,6 +7,7 @@ const { pool } = require('../config/db');
 const vectorService = require('./vectorService');
 const agentService = require('./agentService');
 const { persistMessage, getHistory } = require('./historyService');
+const { verifierUrlSource, verifierRedirection } = require('../utils/urlGuard');
 
 /**
  * Map des clients actifs : botId (string) → { client, status }
@@ -150,9 +151,19 @@ async function initializeWhatsApp(botId, qrCallback) {
                 url.includes('docs.google.com/document') || url.includes('format=txt');
 
               console.log(`🌐 Appel de l'API externe : ${url}`);
+              // Revalidation a l usage : protege aussi les sources
+              // enregistrees avant la mise en place du controle.
+              await verifierUrlSource(url);
+
               const resp = await axios.get(url, {
                 timeout: 5000,
                 responseType: (isGoogleSheetsCsv || isGoogleDocsTxt) ? 'text' : 'json',
+                // Les exports Google Sheets et Docs redirigent : on les suit,
+                // mais chaque saut est verifie pour ne pas atterrir en interne.
+                maxRedirects: 5,
+                beforeRedirect: (options) => {
+                  verifierRedirection(options.protocol, options.hostname, options.port);
+                },
               });
 
               let data;

@@ -109,6 +109,7 @@ Renseigner `backend/.env` :
 | `PORT` | non | 3000 par défaut |
 | `OLLAMA_URL` | non | `http://localhost:11434` par défaut |
 | `TAVILY_API_KEY` | non | Recherche web désactivée si absente |
+| `ALLOWED_INTERNAL_HOSTS` | non | Hôtes internes autorisés comme sources API, séparés par des virgules |
 
 Générer un secret :
 
@@ -213,6 +214,14 @@ Chromium ; ce n'est pas l'API WhatsApp Business. Le compte utilisé s'expose à
 une suspension par Meta. La build de WhatsApp Web est épinglée dans
 `whatsappService.js` : une mise à jour de Meta peut casser la bibliothèque, et
 il faut alors ajuster la version épinglée.
+
+**Sources API et réseau interne.** Les URL de sources sont refusées si elles
+pointent vers une adresse privée, `localhost` ou une adresse lien-local, à la
+fois à l'enregistrement et à chaque appel. Pour autoriser une exception —
+typiquement `localhost:3001` afin d'interroger MarsaTrack AI — la déclarer
+dans `ALLOWED_INTERNAL_HOSTS`. Les redirections sont suivies mais chaque saut
+est contrôlé ; ce contrôle ne peut pas résoudre le DNS, donc une redirection
+vers un nom de domaine pointant vers une adresse interne reste possible.
 
 **Un Chromium par bot actif.** Compter plusieurs centaines de mégaoctets de
 mémoire vive par bot, et une centaine sur disque pour son profil de session.

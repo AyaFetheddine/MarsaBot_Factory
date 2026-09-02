@@ -3,6 +3,7 @@ const { PDFParse } = require('pdf-parse');
 const { findByBotAndName, createDocument, getDocumentsByBot, getDocumentById, deleteDocument } = require('../models/documentModel');
 const { addApiSource, getApiSourcesByBot, deleteApiSource } = require('../models/apiSourceModel');
 const vectorService = require('../services/vectorService');
+const { verifierUrlSource } = require('../utils/urlGuard');
 
 /**
  * Parse un fichier CSV et retourne une chaîne de texte formatée clé:valeur
@@ -184,9 +185,15 @@ async function addApi(req, res) {
     if (!url || !url.trim()) {
       return res.status(400).json({ success: false, message: "L'URL est requise." });
     }
+    // Refus des URL pointant vers le reseau interne (SSRF)
+    await verifierUrlSource(url.trim());
+
     const source = await addApiSource(botId, url.trim());
     return res.status(201).json({ success: true, data: source });
   } catch (error) {
+    if (error.status === 400) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     console.error('Erreur addApi :', error.message);
     return res.status(500).json({ success: false, message: "Erreur lors de l'ajout de la source API." });
   }
