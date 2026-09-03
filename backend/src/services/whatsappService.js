@@ -8,6 +8,7 @@ const vectorService = require('./vectorService');
 const agentService = require('./agentService');
 const { persistMessage, getHistory } = require('./historyService');
 const { verifierUrlSource, verifierRedirection } = require('../utils/urlGuard');
+const { masquerSecretsUrl, formaterEtatOperationnel } = require('../utils/apiSourceFormat');
 
 /**
  * Map des clients actifs : botId (string) → { client, status }
@@ -150,7 +151,8 @@ async function initializeWhatsApp(botId, qrCallback) {
               const isGoogleDocsTxt =
                 url.includes('docs.google.com/document') || url.includes('format=txt');
 
-              console.log(`🌐 Appel de l'API externe : ${url}`);
+              const urlSansSecret = masquerSecretsUrl(url);
+              console.log(`🌐 Appel de l'API externe : ${urlSansSecret}`);
               // Revalidation a l usage : protege aussi les sources
               // enregistrees avant la mise en place du controle.
               await verifierUrlSource(url);
@@ -208,13 +210,24 @@ async function initializeWhatsApp(botId, qrCallback) {
                   console.log(`🟢 Synchronisation Google Sheets réussie (${rows.length} ligne(s), délimiteur '${delimiter}')`);
                 }
               } else {
-                data = typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data);
-                console.log(`✅ Appel de l'API externe réussi : ${url}`);
+                // Etat operationnel MarsaTrack : converti en lignes lisibles.
+                // Le JSON brut (tableaux imbriques de personnels et d'arrets)
+                // est mal exploite par un modele de cette taille.
+                const enLignes = formaterEtatOperationnel(resp.data);
+                if (enLignes) {
+                  data = enLignes;
+                  console.log(`🟣 Etat operationnel MarsaTrack mis en forme (${data.length} caractères)`);
+                } else {
+                  data = typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data);
+                }
+                console.log(`✅ Appel de l'API externe réussi : ${urlSansSecret}`);
               }
 
-              apiResults.push(`[Source: ${url}]\n${data}`);
+              // URL masquee : un jeton d'authentification ne doit jamais entrer
+              // dans le contexte transmis au modele.
+              apiResults.push(`[Source: ${urlSansSecret}]\n${data}`);
             } catch (apiErr) {
-              console.warn(`⚠️  API externe échouée (${url}) :`, apiErr.message);
+              console.warn(`⚠️  API externe échouée (${masquerSecretsUrl(url)}) :`, apiErr.message);
             }
           }
           if (apiResults.length > 0) {

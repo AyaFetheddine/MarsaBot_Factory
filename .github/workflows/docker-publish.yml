@@ -28,7 +28,7 @@ jobs:
       - name: Installer Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: "20"
 
       # -- Backend : suite de tests (bloquant) --
       # Chromium n est pas telecharge : les tests tournent sans navigateur.
