@@ -49,6 +49,9 @@ function Dashboard() {
     }
   };
 
+  // fetchBots est aussi appelee par le bouton Actualiser et apres soumission
+  // du formulaire (voir plus bas) ; elle ne depend d aucune prop/etat reactif,
+  // l effet ne doit donc s executer qu au montage.
   useEffect(() => {
     fetchBots();
   }, []);
@@ -91,7 +94,7 @@ function Dashboard() {
       // Fallback : copie dans le presse-papier
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       alert('QR Code copié dans le presse-papier !');
-    } catch (err) {
+    } catch {
       alert('Le partage ou la copie n\'est pas supporté sur ce navigateur.');
     }
   };

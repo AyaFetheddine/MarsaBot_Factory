@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
 
@@ -22,12 +23,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Installer Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "22"
 
       # -- Backend : suite de tests (bloquant) --
       # Chromium n est pas telecharge : les tests tournent sans navigateur.
@@ -35,7 +36,7 @@ jobs:
         working-directory: ./backend
         env:
           PUPPETEER_SKIP_DOWNLOAD: "true"
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: Backend - Tests unitaires
         working-directory: ./backend
@@ -45,6 +46,10 @@ jobs:
       - name: Frontend - Installer les dependances
         working-directory: ./frontend
         run: npm ci
+
+      - name: Frontend - Lint
+        working-directory: ./frontend
+        run: npm run lint
 
       - name: Frontend - Build
         working-directory: ./frontend
@@ -60,7 +65,7 @@ jobs:
     steps:
       # Récupérer le code source
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Se connecter à Docker Hub avec les secrets GitHub
       - name: Log in to Docker Hub
@@ -75,7 +80,7 @@ jobs:
 
       # Construire et pousser l'image backend
       - name: Build & Push backend image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./backend
           file: ./backend/Dockerfile
@@ -94,7 +99,7 @@ jobs:
     steps:
       # Récupérer le code source
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Se connecter à Docker Hub
       - name: Log in to Docker Hub
@@ -109,7 +114,7 @@ jobs:
 
       # Construire et pousser l'image frontend (multi-stage : Vite → Nginx)
       - name: Build & Push frontend image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./frontend
           file: ./frontend/Dockerfile

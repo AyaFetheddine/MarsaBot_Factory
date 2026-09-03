@@ -125,6 +125,9 @@ function KnowledgeBase() {
       .catch(() => setApiSources([]));
   };
 
+  // fetchDocuments est aussi appelee apres suppression, upload et ajout de
+  // source API (voir plus bas) ; selectedBotId, seule valeur reactive dont elle
+  // depend, est deja dans le tableau de dependances de cet effet.
   useEffect(() => {
     fetchDocuments();
   }, [selectedBotId]);
@@ -427,7 +430,7 @@ const handleAddApiSource = async () => {
                           const fileBlob = new Blob([response.data], { type: response.headers['content-type'] });
                           const fileURL = URL.createObjectURL(fileBlob);
                           window.open(fileURL, '_blank');
-                        } catch (err) {
+                        } catch {
                           toast.error('Impossible d\'ouvrir le fichier.');
                         }
                       }}
