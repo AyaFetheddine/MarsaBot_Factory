@@ -56,6 +56,10 @@ export function viewBotDocument(botId, docId) {
   return api.get(`/knowledge/${botId}/documents/${docId}/view`, { responseType: 'blob' });
 }
 
+export function reindexBotDocument(botId, docId) {
+  return api.post(`/knowledge/${botId}/documents/${docId}/reindex`);
+}
+
 export function addBotApiSource(botId, url) {
   return api.post(`/knowledge/${botId}/api-sources`, { url });
 }

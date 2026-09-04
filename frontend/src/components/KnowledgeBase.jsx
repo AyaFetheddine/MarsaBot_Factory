@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
-import { addBotApiSource, deleteBotApiSource, deleteBotDocument, getBotApiSources, getBotDocuments, getBots, uploadKnowledgeFile, viewBotDocument } from '../services/api';
+import { addBotApiSource, deleteBotApiSource, deleteBotDocument, getBotApiSources, getBotDocuments, getBots, reindexBotDocument, uploadKnowledgeFile, viewBotDocument } from '../services/api';
 import './KnowledgeBase.css';
 
 /* ── Icône nuage upload ── */
@@ -98,6 +98,28 @@ function DocIcon({ type }) {
   );
 }
 
+/* ── Badge de statut d'indexation ──
+   Un document non indexé n'alimente pas les réponses du bot. Sans ce badge,
+   l'échec était invisible : le document apparaissait dans la liste comme les
+   autres, et le bot répondait « je n'ai pas cette information » sans que rien
+   n'explique pourquoi. Les documents créés avant cette version n'ont pas de
+   statut : ils sont affichés comme indexés, ce qu'ils sont. */
+function StatutIndexation({ doc }) {
+  const statut = doc.indexing_status || 'indexed';
+  const libelles = {
+    indexed: { texte: 'Indexé', classe: 'kb-statut--indexe' },
+    pending: { texte: 'Indexation en cours…', classe: 'kb-statut--attente' },
+    failed: { texte: 'Échec d’indexation', classe: 'kb-statut--echec' },
+  };
+  const { texte, classe } = libelles[statut] || libelles.indexed;
+
+  return (
+    <span className={`kb-statut ${classe}`} title={statut === 'failed' ? doc.indexing_error || '' : undefined}>
+      {texte}
+    </span>
+  );
+}
+
 function KnowledgeBase() {
   const [bots, setBots] = useState([]);
   const [selectedBotId, setSelectedBotId] = useState('');
@@ -107,6 +129,7 @@ function KnowledgeBase() {
   const [documents, setDocuments] = useState([]);
   const [apiSources, setApiSources] = useState([]);
   const [apiUrl, setApiUrl] = useState('');
+  const [reindexEnCours, setReindexEnCours] = useState(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -131,6 +154,24 @@ function KnowledgeBase() {
   useEffect(() => {
     fetchDocuments();
   }, [selectedBotId]);
+
+  // La réindexation est lancée côté serveur puis se poursuit en tâche de fond :
+  // le calcul des embeddings prend plusieurs secondes par morceau de texte. La
+  // liste est rechargée une première fois pour afficher « en cours », puis une
+  // seconde fois après quelques secondes pour montrer l'issue.
+  const handleReindex = async (docId) => {
+    setReindexEnCours(docId);
+    try {
+      await reindexBotDocument(selectedBotId, docId);
+      fetchDocuments();
+      toast.success('Réindexation lancée.');
+      setTimeout(fetchDocuments, 5000);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Impossible de relancer l’indexation.');
+    } finally {
+      setReindexEnCours(null);
+    }
+  };
 
   const handleDelete = (docId) => {
     toast((t) => (
@@ -437,8 +478,23 @@ const handleAddApiSource = async () => {
                     >
                       {doc.nom_original}
                     </p>
-                    <p className="kb-doc-meta">Ajouté le {formatDate(doc.date_ajout)} · {formatSize(doc.taille)}</p>
+                    <p className="kb-doc-meta">
+                      Ajouté le {formatDate(doc.date_ajout)} · {formatSize(doc.taille)}
+                      {' · '}<StatutIndexation doc={doc} />
+                    </p>
                   </div>
+                  {doc.indexing_status === 'failed' && (
+                    <button
+                      type="button"
+                      className="kb-doc-reindex"
+                      title={doc.indexing_error || 'Relancer l’indexation'}
+                      aria-label={`Réindexer ${doc.nom_original}`}
+                      disabled={reindexEnCours === doc.id}
+                      onClick={() => handleReindex(doc.id)}
+                    >
+                      {reindexEnCours === doc.id ? '…' : 'Réindexer'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="kb-doc-delete"

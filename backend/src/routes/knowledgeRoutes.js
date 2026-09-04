@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const upload = require('../middlewares/upload');
-const { uploadFile, getDocuments, deleteFile, viewFile, addApi, getApis, deleteApi } = require('../controllers/knowledgeController');
+const { uploadFile, getDocuments, deleteFile, viewFile, reindexFile, addApi, getApis, deleteApi } = require('../controllers/knowledgeController');
 const authMiddleware = require('../middlewares/authMiddleware');
 
 // POST /api/knowledge/upload
@@ -14,6 +14,9 @@ router.get('/:botId/documents', getDocuments);
 // Le botId est obligatoire dans le chemin : sans lui, le contenu d un document
 // etait servi a partir de son seul identifiant, sans lien avec le bot demande.
 router.get('/:botId/documents/:docId/view', viewFile);
+
+// POST /api/knowledge/:botId/documents/:docId/reindex
+router.post('/:botId/documents/:docId/reindex', reindexFile);
 
 // DELETE /api/knowledge/:botId/documents/:docId
 router.delete('/:botId/documents/:docId', authMiddleware, deleteFile);

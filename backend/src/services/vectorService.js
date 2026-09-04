@@ -1,5 +1,6 @@
 const axios = require('axios');
 const { pool } = require('../config/db');
+const { setIndexingStatus } = require('../models/documentModel');
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const EMBED_MODEL = 'nomic-embed-text';
@@ -90,21 +91,52 @@ async function getEmbedding(text) {
 async function processAndStoreDocument(documentId, text) {
   if (!text || text.trim().length === 0) {
     console.log(`⚠️  Aucun texte à vectoriser pour le document ${documentId}.`);
+    await setIndexingStatus(documentId, 'indexed', null);
     return;
   }
 
   const chunks = chunkText(text);
   console.log(`✂️  Découpage du texte en ${chunks.length} chunks...`);
 
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
-    const embedding = await getEmbedding(chunk);
-    await pool.execute(
-      'INSERT INTO document_chunks (document_id, chunk_text, embedding) VALUES (?, ?, ?)',
-      [documentId, chunk, JSON.stringify(embedding)]
-    );
+  // Les embeddings sont calculés AVANT d'ouvrir la transaction. C'est la partie
+  // longue et faillible : elle appelle Ollama une fois par chunk. La garder
+  // hors transaction évite de tenir un verrou pendant plusieurs secondes.
+  const vecteurs = [];
+  try {
+    for (const chunk of chunks) {
+      vecteurs.push({ chunk, embedding: await getEmbedding(chunk) });
+    }
+  } catch (err) {
+    await setIndexingStatus(documentId, 'failed', err.message);
+    throw err;
   }
 
+  // L'écriture, elle, est atomique. Auparavant chaque INSERT était validé
+  // isolément : un échec au cinquième chunk sur dix laissait quatre chunks
+  // orphelins, et le document paraissait indexé alors qu'il ne l'était qu'à
+  // moitié — donc répondait faux sans jamais le signaler.
+  const connexion = await pool.getConnection();
+  try {
+    await connexion.beginTransaction();
+    // Purge des chunks d'une indexation précédente : sans elle, une
+    // réindexation ajouterait ses chunks aux anciens au lieu de les remplacer.
+    await connexion.execute('DELETE FROM document_chunks WHERE document_id = ?', [documentId]);
+    for (const { chunk, embedding } of vecteurs) {
+      await connexion.execute(
+        'INSERT INTO document_chunks (document_id, chunk_text, embedding) VALUES (?, ?, ?)',
+        [documentId, chunk, JSON.stringify(embedding)]
+      );
+    }
+    await connexion.commit();
+  } catch (err) {
+    await connexion.rollback();
+    await setIndexingStatus(documentId, 'failed', err.message);
+    throw err;
+  } finally {
+    connexion.release();
+  }
+
+  await setIndexingStatus(documentId, 'indexed', null);
   console.log(`🔢 Vectorisation et stockage terminés (${chunks.length} chunks pour le document ${documentId}).`);
 }
 
@@ -139,11 +171,14 @@ function cosineSimilarity(vecA, vecB) {
  * @returns {Promise<string>}           - Chunks concatenes, en ordre documentaire
  */
 async function findSimilarChunks(questionEmbedding, botId, topK = 4) {
+  // Seuls les documents effectivement indexes alimentent la recherche. Un
+  // document en echec peut avoir laisse des chunks partiels : les inclure
+  // ferait repondre le bot sur une base incomplete, sans que rien ne l indique.
   const [rows] = await pool.execute(
     `SELECT dc.id, dc.document_id, dc.chunk_text, dc.embedding
      FROM document_chunks dc
      JOIN documents d ON dc.document_id = d.id
-     WHERE d.bot_id = ?`,
+     WHERE d.bot_id = ? AND d.indexing_status = 'indexed'`,
     [String(botId)]
   );
 

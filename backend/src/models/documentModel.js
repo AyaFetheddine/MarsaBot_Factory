@@ -13,6 +13,8 @@ async function initDocumentsTable() {
       chemin              VARCHAR(500)  NOT NULL,
       taille              INT           NOT NULL DEFAULT 0,
       content             LONGTEXT,
+      indexing_status     ENUM('pending','indexed','failed') NOT NULL DEFAULT 'indexed',
+      indexing_error      VARCHAR(255),
       date_ajout          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT fk_documents_bot
         FOREIGN KEY (bot_id) REFERENCES bots(id)
@@ -30,6 +32,22 @@ async function initDocumentsTable() {
     // Erreur 1060 = colonne déjà existante, on ignore silencieusement
     if (err.errno !== 1060) throw err;
   }
+
+  // Statut d'indexation, pour les bases créées avant cette version.
+  // La valeur par défaut est 'indexed' : les documents déjà présents ont été
+  // vectorisés par l'ancien code, les déclarer 'pending' les exclurait du RAG
+  // du jour au lendemain.
+  for (const definition of [
+    "ADD COLUMN indexing_status ENUM('pending','indexed','failed') NOT NULL DEFAULT 'indexed'",
+    'ADD COLUMN indexing_error VARCHAR(255) NULL',
+  ]) {
+    try {
+      await pool.execute(`ALTER TABLE documents ${definition}`);
+      console.log(`✅ Colonne d'indexation ajoutée : ${definition.split(' ')[2]}`);
+    } catch (err) {
+      if (err.errno !== 1060) throw err;
+    }
+  }
   console.log('✅ Table documents vérifiée/créée.');
 }
 
@@ -46,12 +64,17 @@ async function findByBotAndName(botId, originalName) {
 
 /**
  * Insère un nouveau document en base.
+ *
+ * Le statut d'indexation est explicite : 'pending' quand il y a du texte à
+ * vectoriser, 'indexed' quand il n'y en a pas. Un document sans texte n'a rien
+ * à indexer, le laisser en attente le ferait paraître bloqué pour toujours.
  */
 async function createDocument({ botId, nomOriginal, nomFichierGenere, chemin, taille, content = '' }) {
+  const statutInitial = content.trim().length > 0 ? 'pending' : 'indexed';
   const [result] = await pool.execute(
-    `INSERT INTO documents (bot_id, nom_original, nom_fichier_genere, chemin, taille, content)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [botId, nomOriginal, nomFichierGenere, chemin, taille, content]
+    `INSERT INTO documents (bot_id, nom_original, nom_fichier_genere, chemin, taille, content, indexing_status)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [botId, nomOriginal, nomFichierGenere, chemin, taille, content, statutInitial]
   );
   const [rows] = await pool.execute(
     'SELECT * FROM documents WHERE id = ?',
@@ -100,6 +123,21 @@ async function deleteDocument(id, botId) {
 }
 
 /**
+ * Enregistre le résultat d'une tentative d'indexation.
+ *
+ * Le motif d'échec est tronqué à la taille de la colonne : une pile d'appels
+ * complète n'apporte rien dans l'interface, et une insertion trop longue
+ * échouerait, faisant perdre l'information au lieu de la conserver.
+ */
+async function setIndexingStatus(id, statut, erreur = null) {
+  const motif = erreur ? String(erreur).slice(0, 255) : null;
+  await pool.execute(
+    'UPDATE documents SET indexing_status = ?, indexing_error = ? WHERE id = ?',
+    [statut, motif, id]
+  );
+}
+
+/**
  * Crée la table document_chunks si elle n'existe pas encore.
  * Chaque chunk est lié à un document (ON DELETE CASCADE) et stocke
  * le texte brut ainsi que l'embedding au format JSON.
@@ -120,4 +158,4 @@ async function initChunksTable() {
   console.log('✅ Table document_chunks vérifiée/créée.');
 }
 
-module.exports = { initDocumentsTable, initChunksTable, findByBotAndName, createDocument, getDocumentsByBot, getDocumentByIdForBot, deleteDocument };
+module.exports = { initDocumentsTable, initChunksTable, findByBotAndName, createDocument, getDocumentsByBot, getDocumentByIdForBot, deleteDocument, setIndexingStatus };

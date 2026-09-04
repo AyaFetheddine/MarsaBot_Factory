@@ -255,6 +255,16 @@ mémoire vive par bot, et une centaine sur disque pour son profil de session.
 en mémoire pour calculer les similarités. Suffisant pour quelques centaines de
 chunks, pas au-delà.
 
+**Indexation asynchrone.** Après un envoi, la vectorisation se poursuit en tâche
+de fond : le calcul des embeddings prend plusieurs secondes par morceau de
+texte. Le document porte un statut visible dans l'interface — *Indexation en
+cours*, *Indexé* ou *Échec d'indexation*, ce dernier accompagné du motif au
+survol. **Seuls les documents `indexed` alimentent les réponses du bot** : un
+document en échec peut avoir laissé une indexation partielle, et répondre
+dessus donnerait une réponse fausse sans que rien ne le signale. Un bouton
+*Réindexer* relance l'opération. L'écriture des chunks est transactionnelle,
+donc un échec en cours de route ne laisse jamais d'indexation à moitié faite.
+
 **Fichiers Excel.** Les `.xlsx` sont acceptés à l'upload mais leur contenu n'est
 pas extrait : le document est enregistré vide et n'alimente pas les réponses.
 Utiliser le format CSV.

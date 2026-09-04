@@ -382,3 +382,28 @@
     gap: 12px;
   }
 }
+
+/* ── Statut d'indexation d'un document ──
+   Un document non indexé n'alimente pas les réponses du bot : le badge rend
+   visible un échec qui était jusqu'ici silencieux. */
+.kb-statut {
+  font-weight: 600;
+}
+.kb-statut--indexe  { color: #2e7d32; }
+.kb-statut--attente { color: #b26a00; }
+.kb-statut--echec   { color: #c62828; }
+
+.kb-doc-reindex {
+  background: #fff;
+  border: 1px solid #c62828;
+  color: #c62828;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-right: 8px;
+  white-space: nowrap;
+}
+.kb-doc-reindex:hover:not(:disabled) { background: #fdecea; }
+.kb-doc-reindex:disabled { opacity: 0.6; cursor: default; }

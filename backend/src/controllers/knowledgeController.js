@@ -1,6 +1,6 @@
 const fs = require('fs');
 const { PDFParse } = require('pdf-parse');
-const { findByBotAndName, createDocument, getDocumentsByBot, getDocumentByIdForBot, deleteDocument } = require('../models/documentModel');
+const { findByBotAndName, createDocument, getDocumentsByBot, getDocumentByIdForBot, deleteDocument, setIndexingStatus } = require('../models/documentModel');
 const { addApiSource, getApiSourcesByBot, deleteApiSource } = require('../models/apiSourceModel');
 const { botExiste } = require('../models/botModel');
 const vectorService = require('../services/vectorService');
@@ -130,7 +130,10 @@ async function uploadFile(req, res) {
       content,
     });
 
-    // Vectorisation RAG (asynchrone, ne bloque pas la réponse HTTP)
+    // Vectorisation RAG (asynchrone, ne bloque pas la réponse HTTP).
+    // L'échec est journalisé ici, mais c'est processAndStoreDocument qui
+    // enregistre le statut 'failed' en base : le client saura, en rechargeant
+    // la liste, que le document n'est pas exploitable.
     if (content.trim().length > 0) {
       vectorService.processAndStoreDocument(document.id, content).catch((vecErr) => {
         console.warn(`⚠️  Vectorisation échouée pour le document ${document.id} :`, vecErr.message);
@@ -191,6 +194,42 @@ async function deleteFile(req, res) {
   } catch (error) {
     console.error('Erreur deleteFile :', error.message);
     return res.status(500).json({ success: false, message: 'Erreur lors de la suppression.' });
+  }
+}
+
+/**
+ * POST /api/knowledge/:botId/documents/:docId/reindex
+ *
+ * Relance la vectorisation d'un document. La réponse part immédiatement : le
+ * calcul des embeddings prend plusieurs secondes par chunk et dépasserait le
+ * délai d'attente du navigateur. Le client suit l'avancement en rechargeant la
+ * liste, où le statut passe de 'pending' à 'indexed' ou 'failed'.
+ */
+async function reindexFile(req, res) {
+  try {
+    const { botId, docId } = req.params;
+
+    const document = await getDocumentByIdForBot(docId, botId);
+    if (!document) {
+      return res.status(404).json({ success: false, message: 'Document introuvable.' });
+    }
+    if (!document.content || document.content.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Ce document ne contient aucun texte exploitable. Il n'y a rien à indexer.",
+      });
+    }
+
+    await setIndexingStatus(document.id, 'pending', null);
+
+    vectorService.processAndStoreDocument(document.id, document.content).catch((vecErr) => {
+      console.warn(`⚠️  Réindexation échouée pour le document ${document.id} :`, vecErr.message);
+    });
+
+    return res.status(202).json({ success: true, message: 'Réindexation lancée.' });
+  } catch (error) {
+    console.error('Erreur reindexFile :', error.message);
+    return res.status(500).json({ success: false, message: 'Erreur lors de la réindexation.' });
   }
 }
 
@@ -262,5 +301,5 @@ async function viewFile(req, res) {
   }
 }
 
-module.exports = { uploadFile, getDocuments, deleteFile, viewFile, addApi, getApis, deleteApi };
+module.exports = { uploadFile, getDocuments, deleteFile, viewFile, reindexFile, addApi, getApis, deleteApi };
 
