@@ -48,8 +48,8 @@ export function deleteBotDocument(botId, docId) {
   return api.delete(`/knowledge/${botId}/documents/${docId}`);
 }
 
-export function viewBotDocument(docId) {
-  return api.get(`/knowledge/documents/${docId}/view`, { responseType: 'blob' });
+export function viewBotDocument(botId, docId) {
+  return api.get(`/knowledge/${botId}/documents/${docId}/view`, { responseType: 'blob' });
 }
 
 export function addBotApiSource(botId, url) {

@@ -1,7 +1,8 @@
 const fs = require('fs');
 const { PDFParse } = require('pdf-parse');
-const { findByBotAndName, createDocument, getDocumentsByBot, getDocumentById, deleteDocument } = require('../models/documentModel');
+const { findByBotAndName, createDocument, getDocumentsByBot, getDocumentByIdForBot, deleteDocument } = require('../models/documentModel');
 const { addApiSource, getApiSourcesByBot, deleteApiSource } = require('../models/apiSourceModel');
+const { botExiste } = require('../models/botModel');
 const vectorService = require('../services/vectorService');
 const { verifierUrlSource } = require('../utils/urlGuard');
 
@@ -62,6 +63,15 @@ async function uploadFile(req, res) {
     if (!botId) {
       fs.unlinkSync(req.file.path);
       return res.status(400).json({ success: false, message: 'Le champ botId est requis.' });
+    }
+
+    // Le bot cible doit exister. Sans ce controle, le fichier etait deja ecrit
+    // dans uploads/ par multer, puis l insertion echouait sur la contrainte de
+    // cle etrangere : le disque conservait un fichier orphelin et le client
+    // recevait une 500 au lieu d une erreur explicite.
+    if (!(await botExiste(botId))) {
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({ success: false, message: 'Bot introuvable.' });
     }
 
     // Protection anti-doublon
@@ -154,9 +164,12 @@ async function getDocuments(req, res) {
 
 async function deleteFile(req, res) {
   try {
-    const { docId } = req.params;
+    const { botId, docId } = req.params;
 
-    const document = await getDocumentById(docId);
+    // Le botId de l URL etait ignore : n importe quel document pouvait etre
+    // supprime depuis l URL de n importe quel bot. La lecture et la suppression
+    // portent desormais toutes deux sur le couple (docId, botId).
+    const document = await getDocumentByIdForBot(docId, botId);
     if (!document) {
       return res.status(404).json({ success: false, message: 'Document introuvable.' });
     }
@@ -169,7 +182,10 @@ async function deleteFile(req, res) {
     }
 
     // Suppression en base
-    await deleteDocument(docId);
+    const lignesSupprimees = await deleteDocument(docId, botId);
+    if (lignesSupprimees === 0) {
+      return res.status(404).json({ success: false, message: 'Document introuvable.' });
+    }
 
     return res.json({ success: true, message: 'Document supprimé avec succès.' });
   } catch (error) {
@@ -212,8 +228,12 @@ async function getApis(req, res) {
 
 async function deleteApi(req, res) {
   try {
-    const { sourceId } = req.params;
-    await deleteApiSource(sourceId);
+    const { botId, sourceId } = req.params;
+    // Meme correction que pour les documents : le botId de l URL etait ignore.
+    const lignesSupprimees = await deleteApiSource(sourceId, botId);
+    if (lignesSupprimees === 0) {
+      return res.status(404).json({ success: false, message: 'Source API introuvable.' });
+    }
     return res.json({ success: true, message: 'Source API supprimée avec succès.' });
   } catch (error) {
     console.error('Erreur deleteApi :', error.message);
@@ -223,8 +243,11 @@ async function deleteApi(req, res) {
 
 async function viewFile(req, res) {
   try {
-    const { docId } = req.params;
-    const document = await getDocumentById(docId);
+    const { botId, docId } = req.params;
+    // La route ne portait aucun botId : le contenu de n importe quel document
+    // etait servi depuis son seul identifiant. Le botId est desormais dans l URL
+    // et l appartenance est verifiee avant d ouvrir le fichier.
+    const document = await getDocumentByIdForBot(docId, botId);
     if (!document) {
       return res.status(404).json({ success: false, message: 'Document introuvable.' });
     }

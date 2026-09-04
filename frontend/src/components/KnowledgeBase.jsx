@@ -426,7 +426,7 @@ const handleAddApiSource = async () => {
                       title="Cliquer pour visualiser"
                       onClick={async () => {
                         try {
-                          const response = await viewBotDocument(doc.id);
+                          const response = await viewBotDocument(selectedBotId, doc.id);
                           const fileBlob = new Blob([response.data], { type: response.headers['content-type'] });
                           const fileURL = URL.createObjectURL(fileBlob);
                           window.open(fileURL, '_blank');

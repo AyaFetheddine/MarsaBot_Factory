@@ -72,21 +72,31 @@ async function getDocumentsByBot(botId) {
 }
 
 /**
- * Récupère un document par son id.
+ * Récupère un document par son id, à condition qu'il appartienne au bot donné.
+ * Renvoie null si le document n'existe pas OU s'il appartient à un autre bot :
+ * l'appelant ne peut donc pas distinguer les deux cas, et répond 404 dans les
+ * deux, sans révéler l'existence d'une ressource d'un autre bot.
  */
-async function getDocumentById(id) {
+async function getDocumentByIdForBot(id, botId) {
   const [rows] = await pool.execute(
-    'SELECT * FROM documents WHERE id = ? LIMIT 1',
-    [id]
+    'SELECT * FROM documents WHERE id = ? AND bot_id = ? LIMIT 1',
+    [id, botId]
   );
   return rows[0] || null;
 }
 
 /**
- * Supprime un document de la base par son id.
+ * Supprime un document appartenant au bot donné.
+ * Le bot_id fait partie de la clause WHERE : une demande croisée ne supprime
+ * rien du tout, plutôt que de supprimer la ressource d'un autre bot.
+ * @returns {Promise<number>} nombre de lignes réellement supprimées (0 ou 1)
  */
-async function deleteDocument(id) {
-  await pool.execute('DELETE FROM documents WHERE id = ?', [id]);
+async function deleteDocument(id, botId) {
+  const [result] = await pool.execute(
+    'DELETE FROM documents WHERE id = ? AND bot_id = ?',
+    [id, botId]
+  );
+  return result.affectedRows;
 }
 
 /**
@@ -110,4 +120,4 @@ async function initChunksTable() {
   console.log('✅ Table document_chunks vérifiée/créée.');
 }
 
-module.exports = { initDocumentsTable, initChunksTable, findByBotAndName, createDocument, getDocumentsByBot, getDocumentById, deleteDocument };
+module.exports = { initDocumentsTable, initChunksTable, findByBotAndName, createDocument, getDocumentsByBot, getDocumentByIdForBot, deleteDocument };

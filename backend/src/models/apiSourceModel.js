@@ -46,10 +46,17 @@ async function getApiSourcesByBot(botId) {
 }
 
 /**
- * Supprime une source API par son id.
+ * Supprime une source API appartenant au bot donné.
+ * Le bot_id fait partie de la clause WHERE : une demande croisée ne supprime
+ * rien du tout, plutôt que de supprimer la source d'un autre bot.
+ * @returns {Promise<number>} nombre de lignes réellement supprimées (0 ou 1)
  */
-async function deleteApiSource(id) {
-  await pool.execute('DELETE FROM api_sources WHERE id = ?', [id]);
+async function deleteApiSource(id, botId) {
+  const [result] = await pool.execute(
+    'DELETE FROM api_sources WHERE id = ? AND bot_id = ?',
+    [id, botId]
+  );
+  return result.affectedRows;
 }
 
 module.exports = { initApiSourceTable, addApiSource, getApiSourcesByBot, deleteApiSource };

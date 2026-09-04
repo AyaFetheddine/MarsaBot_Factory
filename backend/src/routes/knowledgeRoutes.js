@@ -10,8 +10,10 @@ router.post('/upload', upload.single('file'), uploadFile);
 // GET /api/knowledge/:botId/documents
 router.get('/:botId/documents', getDocuments);
 
-// GET /api/knowledge/documents/:docId/view
-router.get('/documents/:docId/view', viewFile);
+// GET /api/knowledge/:botId/documents/:docId/view
+// Le botId est obligatoire dans le chemin : sans lui, le contenu d un document
+// etait servi a partir de son seul identifiant, sans lien avec le bot demande.
+router.get('/:botId/documents/:docId/view', viewFile);
 
 // DELETE /api/knowledge/:botId/documents/:docId
 router.delete('/:botId/documents/:docId', authMiddleware, deleteFile);
