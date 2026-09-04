@@ -50,16 +50,27 @@ async function saveMessage(idGroupe, botId, role, content) {
  * @returns {Promise<{role: string, content: string}[]>}
  */
 async function getRecentMessages(idGroupe, botId, limit = 10) {
+  // MySQL n'accepte pas de parametre lie apres LIMIT dans une requete preparee :
+  // la requete echouait a chaque appel avec « Incorrect arguments to
+  // mysqld_stmt_execute ». L'erreur etant rattrapee plus haut et convertie en
+  // tableau vide, la panne etait invisible et l'historique de conversation
+  // toujours vide.
+  //
+  // La limite est donc interpolee, apres avoir ete ramenee a un entier borne.
+  // Elle ne peut pas porter d'injection : ce qui est insere est le resultat d'un
+  // calcul numerique, jamais la valeur recue. Les deux autres parametres restent
+  // lies normalement.
+  const borne = Math.min(Math.max(Number.parseInt(limit, 10) || 10, 1), 100);
   const [rows] = await pool.execute(
     `SELECT role, content FROM (
        SELECT role, content, created_at
        FROM messages
        WHERE id_groupe = ? AND bot_id = ?
        ORDER BY created_at DESC
-       LIMIT ?
+       LIMIT ${borne}
      ) sub
      ORDER BY sub.created_at ASC`,
-    [idGroupe, botId, limit]
+    [idGroupe, botId]
   );
   return rows;
 }

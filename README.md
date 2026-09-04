@@ -113,6 +113,7 @@ Renseigner `backend/.env` :
 | `CORS_ORIGINS` | non | Origines autorisées à appeler l'API depuis un navigateur, séparées par des virgules. Sans elle, seules les origines locales de développement sont acceptées |
 | `LOGIN_RATE_LIMIT_WINDOW_MINUTES` | non | Fenêtre de limitation de la connexion, 15 minutes par défaut |
 | `LOGIN_RATE_LIMIT_MAX` | non | Tentatives de connexion autorisées par fenêtre et par adresse, 20 par défaut. `0` désactive la limitation |
+| `CONTEXTE_MAX_CARACTERES_PAR_SOURCE` | non | Longueur maximale de chaque source injectée dans le prompt, 8000 par défaut |
 
 Générer un secret :
 
@@ -331,9 +332,28 @@ quand `CORS_ORIGINS` n'est pas renseignée ; la route de connexion est limitée
 en débit par adresse ; et le `botId` de l'URL est vérifié avant tout accès à un
 document ou à une source.
 
-Reste à traiter avant un déploiement exposé : le contenu des documents et des
-réponses d'API, aujourd'hui injecté brut dans le prompt du modèle, sans
-séparation entre instructions et données.
+### Séparation entre instructions et données
+
+Le prompt est construit en trois zones. Les règles du bot, sa langue et son
+identité viennent **avant**. Tout ce que nous n'écrivons pas — documents,
+réponses d'API, résultats web, **historique de conversation** — est enfermé dans
+un bloc unique `<DONNEES …>`, dont l'identifiant est **tiré au hasard à chaque
+requête** : un contenu écrit à l'avance ne peut donc pas le deviner pour fermer
+le bloc et se faire passer pour une consigne. Un rappel placé **après** le bloc
+réancre le modèle.
+
+Chaque source traverse `utils/neutraliserContexte.js`, qui ne touche qu'à ce qui
+a une valeur **structurelle** : marqueurs de rôle en début de ligne, balises de
+contrôle de modèle, tentatives de fermeture du délimiteur, caractères de
+contrôle et d'inversion de sens de lecture. La prose est laissée intacte — un
+document parlant de « règle » ou de « système » dans une phrase, comme une ligne
+CSV commençant par `ID_Equipement:`, ressort à l'identique. Chaque source est
+tronquée à `CONTEXTE_MAX_CARACTERES_PAR_SOURCE`, la coupe étant annoncée au
+modèle plutôt que silencieuse.
+
+Cette protection **réduit** le risque d'injection, elle ne l'annule pas : un
+modèle de langage reste faillible face à un contenu adverse. Elle supprime les
+vecteurs structurels, pas la persuasion en langage naturel.
 
 ### Forme du jeton
 
