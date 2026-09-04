@@ -2,6 +2,13 @@ const { pool } = require('../config/db');
 
 /**
  * Crée la table documents si elle n'existe pas encore.
+ *
+ * La définition est identique à celle de sql/init.sql, qui reste la source de
+ * vérité. Les ALTER TABLE de rattrapage qui figuraient ici — pour content, puis
+ * pour les colonnes d'indexation — ont été retirés : ils faisaient diverger le
+ * schéma réel de celui du fichier, et masquaient la divergence en avalant
+ * l'erreur 1060. Une base créée avant ces colonnes doit donc être migrée à la
+ * main, la procédure est dans le README.
  */
 async function initDocumentsTable() {
   await pool.execute(`
@@ -22,32 +29,6 @@ async function initDocumentsTable() {
         ON UPDATE CASCADE
     ) ENGINE=InnoDB
   `);
-  // Ajoute la colonne content si la table existait avant cette version
-  try {
-    await pool.execute(`
-      ALTER TABLE documents ADD COLUMN content LONGTEXT
-    `);
-    console.log('✅ Colonne content ajoutée à la table documents.');
-  } catch (err) {
-    // Erreur 1060 = colonne déjà existante, on ignore silencieusement
-    if (err.errno !== 1060) throw err;
-  }
-
-  // Statut d'indexation, pour les bases créées avant cette version.
-  // La valeur par défaut est 'indexed' : les documents déjà présents ont été
-  // vectorisés par l'ancien code, les déclarer 'pending' les exclurait du RAG
-  // du jour au lendemain.
-  for (const definition of [
-    "ADD COLUMN indexing_status ENUM('pending','indexed','failed') NOT NULL DEFAULT 'indexed'",
-    'ADD COLUMN indexing_error VARCHAR(255) NULL',
-  ]) {
-    try {
-      await pool.execute(`ALTER TABLE documents ${definition}`);
-      console.log(`✅ Colonne d'indexation ajoutée : ${definition.split(' ')[2]}`);
-    } catch (err) {
-      if (err.errno !== 1060) throw err;
-    }
-  }
   console.log('✅ Table documents vérifiée/créée.');
 }
 

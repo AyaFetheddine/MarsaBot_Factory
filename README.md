@@ -312,7 +312,7 @@ cause réelle. Relancer détruit la session en cours.
 
 ```
 backend/
-  sql/init.sql              tables bots et admins
+  sql/init.sql              schéma de référence de la base
   src/
     config/db.js            pool MySQL
     routes/                 admin, bots, knowledge, settings
@@ -328,6 +328,48 @@ frontend/
   src/components/           Login, Dashboard, KnowledgeBase, Settings
   src/services/api.js       client axios
 ```
+
+### Schéma de la base — où est la source de vérité
+
+`backend/sql/init.sql` **est la référence**. Il décrit les sept tables du
+produit, et Docker Compose le monte dans MySQL au tout premier démarrage du
+conteneur.
+
+| Table | Rôle |
+| --- | --- |
+| `bots` | Les agents et leur configuration |
+| `admins` | Comptes d'administration |
+| `documents` | Fichiers importés, texte extrait, statut d'indexation |
+| `document_chunks` | Morceaux de texte et leurs vecteurs |
+| `api_sources` | URL d'API interrogées par un bot |
+| `system_settings` | Réglages globaux (URL Ollama, modèle par défaut) |
+| `messages` | Historique de conversation par bot et par correspondant |
+
+Au démarrage, le backend exécute un `CREATE TABLE IF NOT EXISTS` pour chacune
+d'elles. Ces définitions sont **identiques** à celles d'`init.sql` et existent
+pour le mode natif, où aucun script d'initialisation n'est joué : elles créent
+ce qui manque sans modifier l'existant. Une exception subsiste, un `ALTER TABLE`
+défensif sur `messages.bot_id` dans `models/messageModel.js`, qui n'a pas été
+touché ici.
+
+> **Base antérieure à septembre 2026.** Le code comportait des `ALTER TABLE` de
+> rattrapage qui ajoutaient à chaud les colonnes manquantes en avalant l'erreur
+> « colonne déjà existante ». Ils faisaient diverger le schéma réel de celui du
+> fichier, et sont retirés. Une base créée avant les colonnes `content` et
+> d'indexation doit donc être mise à niveau une fois, à la main :
+>
+> ```sql
+> ALTER TABLE documents
+>   ADD COLUMN content LONGTEXT,
+>   ADD COLUMN indexing_status ENUM('pending','indexed','failed') NOT NULL DEFAULT 'indexed',
+>   ADD COLUMN indexing_error VARCHAR(255);
+> ```
+
+Les tables `whatsapp_sessions` et `bot_documents` ont été supprimées d'`init.sql`
+en septembre 2026 : aucune ligne, aucune référence dans le code. L'état de
+connexion WhatsApp vit en mémoire dans `whatsappService`, et `bot_documents`
+avait été remplacée par `documents`. Elles subsistent dans les bases déjà
+créées, où elles peuvent être supprimées sans conséquence.
 
 ---
 
