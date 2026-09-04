@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
+const helmet = require('helmet');
 require('dotenv').config();
 
 
@@ -15,11 +16,15 @@ const adminRoutes = require('./routes/adminRoutes');
 const knowledgeRoutes = require('./routes/knowledgeRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const authMiddleware = require('./middlewares/authMiddleware');
+const { optionsCors, optionsHelmet } = require('./config/securite');
 
 const app = express();
 
 // Middlewares
-app.use(cors());
+// helmet en premier : les en-tetes de securite doivent etre poses meme sur les
+// reponses d erreur emises par les middlewares suivants.
+app.use(helmet(optionsHelmet));
+app.use(cors(optionsCors));
 app.use(express.json());
 
 

@@ -110,6 +110,9 @@ Renseigner `backend/.env` :
 | `OLLAMA_URL` | non | `http://localhost:11434` par défaut |
 | `TAVILY_API_KEY` | non | Recherche web désactivée si absente |
 | `ALLOWED_INTERNAL_HOSTS` | non | Hôtes internes autorisés comme sources API, séparés par des virgules |
+| `CORS_ORIGINS` | non | Origines autorisées à appeler l'API depuis un navigateur, séparées par des virgules. Sans elle, seules les origines locales de développement sont acceptées |
+| `LOGIN_RATE_LIMIT_WINDOW_MINUTES` | non | Fenêtre de limitation de la connexion, 15 minutes par défaut |
+| `LOGIN_RATE_LIMIT_MAX` | non | Tentatives de connexion autorisées par fenêtre et par adresse, 20 par défaut. `0` désactive la limitation |
 
 Générer un secret :
 
@@ -298,8 +301,15 @@ frontend/
 ## Sécurité
 
 Cette version est destinée à un usage de développement et de démonstration.
-Avant tout déploiement exposé, traiter au minimum : les URL de sources API,
-appelées côté serveur sans validation ; le dossier `/uploads`, servi sans
-authentification ; le contenu des documents et des API, injecté brut dans le
-prompt ; l'absence de limitation de débit sur la route de connexion ; et la
-politique CORS, aujourd'hui ouverte à toutes les origines.
+
+En place aujourd'hui : les URL de sources API sont validées contre le SSRF à
+l'enregistrement comme à chaque appel ; le dossier `/uploads` n'est plus servi
+publiquement ; `helmet` pose les en-têtes de sécurité ; la politique CORS
+fonctionne en liste blanche, réduite aux origines locales de développement
+quand `CORS_ORIGINS` n'est pas renseignée ; la route de connexion est limitée
+en débit par adresse ; et le `botId` de l'URL est vérifié avant tout accès à un
+document ou à une source.
+
+Reste à traiter avant un déploiement exposé : le contenu des documents et des
+réponses d'API, aujourd'hui injecté brut dans le prompt du modèle, sans
+séparation entre instructions et données.
