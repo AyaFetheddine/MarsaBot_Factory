@@ -22,7 +22,7 @@ const clients = new Map();
 async function destroyClient(botId) {
   const entry = clients.get(String(botId));
   if (entry) {
-    try { await entry.client.destroy(); } catch (_) { /* ignore */ }
+    try { await entry.client.destroy(); } catch { /* ignore */ }
     clients.delete(String(botId));
   }
 }
@@ -46,7 +46,7 @@ async function initializeWhatsApp(botId, qrCallback) {
       fs.unlinkSync(lockfilePath);
       console.log(`🔓 Lockfile supprimé pour bot #${key}`);
     }
-  } catch (_) { /* ignore — pas bloquant */ }
+  } catch { /* ignore — pas bloquant */ }
 
   const client = new Client({
     authStrategy: new LocalAuth({ clientId: `bot_${key}` }),

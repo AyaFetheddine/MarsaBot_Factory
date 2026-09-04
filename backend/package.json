@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "lint": "eslint ."
   },
   "keywords": [],
   "author": "",
@@ -24,5 +25,10 @@
     "pdf-parse": "^2.4.5",
     "qrcode": "^1.5.4",
     "whatsapp-web.js": "^1.34.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.12.0"
   }
 }

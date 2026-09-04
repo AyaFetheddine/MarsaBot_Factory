@@ -30,7 +30,7 @@ function masquerSecretsUrl(urlBrute) {
       }
     }
     return modifiee ? url.toString() : String(urlBrute);
-  } catch (_) {
+  } catch {
     // URL non analysable : on ne prend aucun risque, on ne renvoie que l'origine
     return String(urlBrute).split('?')[0];
   }

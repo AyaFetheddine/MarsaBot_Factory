@@ -135,7 +135,7 @@ async function uploadFile(req, res) {
   } catch (error) {
     console.error('Erreur uploadFile :', error.message);
     if (req.file?.path) {
-      try { fs.unlinkSync(req.file.path); } catch (_) { /* fichier peut ne pas exister */ }
+      try { fs.unlinkSync(req.file.path); } catch { /* fichier peut ne pas exister */ }
     }
     return res.status(500).json({ success: false, message: 'Erreur lors de l\'upload.' });
   }
@@ -164,7 +164,7 @@ async function deleteFile(req, res) {
     // Suppression du fichier physique
     try {
       fs.unlinkSync(document.chemin);
-    } catch (_) {
+    } catch {
       // Le fichier physique peut déjà avoir disparu — on continue quand même
     }
 

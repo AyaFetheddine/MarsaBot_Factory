@@ -77,7 +77,7 @@ async function verifierUrlSource(urlBrute) {
   let url;
   try {
     url = new URL(String(urlBrute).trim());
-  } catch (_) {
+  } catch {
     throw erreurClient("URL invalide. Attendu : une adresse http ou https complète.");
   }
 
@@ -114,7 +114,7 @@ async function verifierUrlSource(urlBrute) {
   let adresses;
   try {
     adresses = await dns.lookup(hote, { all: true });
-  } catch (_) {
+  } catch {
     throw erreurClient(`Hôte introuvable : ${hote}`);
   }
 
