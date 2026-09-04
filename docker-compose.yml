@@ -3,8 +3,10 @@ services:
   # ── Base de données MySQL ────────────────────────────────────────────────────
   mysql:
     image: mysql:8.0
-    container_name: marsabot_mysql
+    container_name: marsabot-mysql
     restart: unless-stopped
+    networks:
+      - marsabot_interne
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-rootpassword}
       MYSQL_DATABASE: ${DB_NAME:-marsabot_db}
@@ -14,9 +16,9 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      # Initialise le schéma (tables bots, admins, whatsapp_sessions…) au tout
-      # premier démarrage. Sans cela, le backend crashe (clé étrangère vers une
-      # table 'bots' inexistante), car ces tables ne sont créées que par ce script.
+      # Initialise le schéma (tables bots, admins, documents…) au tout premier
+      # démarrage. Sans cela, le backend crashe (clé étrangère vers une table
+      # 'bots' inexistante), car ces tables ne sont créées que par ce script.
       - ./backend/sql/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
@@ -29,8 +31,14 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: marsabot_backend
+    container_name: marsabot-backend
     restart: unless-stopped
+    networks:
+      # marsabot_interne : dialogue avec MySQL et le frontend de ce stack.
+      # marsa_net : réseau partagé avec MarsaTrack AI, pour que les deux
+      # services puissent s'appeler par leur nom de conteneur.
+      - marsabot_interne
+      - marsa_net
     depends_on:
       mysql:
         condition: service_healthy
@@ -46,6 +54,19 @@ services:
       DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
       TAVILY_API_KEY: ${TAVILY_API_KEY}
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      # Origines autorisées à appeler l'API depuis un navigateur. Sans valeur,
+      # le backend retombe sur les origines locales de développement.
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      LOGIN_RATE_LIMIT_WINDOW_MINUTES: ${LOGIN_RATE_LIMIT_WINDOW_MINUTES:-15}
+      LOGIN_RATE_LIMIT_MAX: ${LOGIN_RATE_LIMIT_MAX:-20}
+      # Exceptions au garde-fou SSRF. Déclarée dans .env.example mais absente
+      # d'ici jusqu'à présent, donc sans effet en conteneur : une source API
+      # pointant vers MarsaTrack était refusée alors que le fichier semblait
+      # l'autoriser.
+      ALLOWED_INTERNAL_HOSTS: ${ALLOWED_INTERNAL_HOSTS:-}
+      # Point d'intégration MarsaTrack AI. Pas encore lu par le code : les URL
+      # de sources sont aujourd'hui saisies entières dans l'interface.
+      MARSATRACK_BASE_URL: ${MARSATRACK_BASE_URL:-}
     ports:
       - "3000:3000"
     volumes:
@@ -55,14 +76,25 @@ services:
     extra_hosts:
       # Permet au backend d'accéder à Ollama sur la machine hôte
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      # Interroge la sonde applicative, qui vérifie réellement MySQL et Ollama.
+      # start_period couvre le démarrage des bots WhatsApp, plus lent que celui
+      # du serveur HTTP lui-même.
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # ── Frontend React + Nginx ───────────────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: marsabot_frontend
+    container_name: marsabot-frontend
     restart: unless-stopped
+    networks:
+      - marsabot_interne
     depends_on:
       - backend
     ports:
@@ -70,3 +102,14 @@ services:
 
 volumes:
   mysql_data:
+
+networks:
+  # Réseau privé de ce stack, créé et détruit avec lui.
+  marsabot_interne:
+    driver: bridge
+
+  # Réseau partagé avec MarsaTrack AI. Déclaré externe : il doit exister avant
+  # le démarrage, et n'est pas supprimé par un docker compose down.
+  #     docker network create marsa_net
+  marsa_net:
+    external: true

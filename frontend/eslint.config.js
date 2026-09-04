@@ -26,4 +26,13 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // Les fichiers de configuration ne sont pas embarques dans le bundle : ils
+    // sont executes par Node au moment du build, et disposent donc de process
+    // et consorts, absents des globals navigateur declares plus haut.
+    files: ['vite.config.js', 'eslint.config.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 ])

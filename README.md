@@ -22,7 +22,7 @@ indépendants : bases de données, dépôts et cycles de vie distincts.
 ## Architecture
 
 ```
-Administration    React 19 + Vite  :5173  ──axios──▶  Express 5  :3000
+Administration    React 19 + Vite  :5174  ──axios──▶  Express 5  :3000
 Canal             Téléphone → WhatsApp Web → Puppeteer/Chromium (1 par bot)
                                                         │
                                                 whatsappService
@@ -142,26 +142,47 @@ L'appel est refusé si un administrateur existe déjà.
 ```bash
 cd frontend
 npm install
+cp .env.example .env       # facultatif : les valeurs par défaut suffisent en local
 npm run dev
 ```
 
-Interface sur http://localhost:5173.
+Interface sur **http://localhost:5174**. MarsaBot occupe 5174 et laisse 5173 à
+MarsaTrack AI, pour que les deux frontends du projet tournent en même temps. Le
+port est fixé dans `vite.config.js`, surchargeable par `FRONTEND_PORT`, et
+`strictPort` est actif : si le port est déjà pris, Vite échoue au lieu de
+glisser sur un autre port, ce qui produirait une origine refusée par le CORS du
+backend.
 
-> L'URL de l'API est **codée en dur** dans `src/services/api.js`
-> (`http://localhost:3000/api`). Aucune variable d'environnement ne la surcharge.
-> Un backend sur un autre port ou une autre machine impose de modifier ce
-> fichier.
+| Variable | Détail |
+| --- | --- |
+| `VITE_API_URL` | URL de base de l'API, chemin `/api` compris. Repli : `http://localhost:3000/api` |
+| `FRONTEND_PORT` | Port du serveur de développement Vite. 5174 par défaut |
+
+> Vite n'expose au code que les variables préfixées `VITE_`, et fige leur valeur
+> dans le bundle au moment du build. Changer d'API impose donc de relancer
+> `npm run build`, pas seulement de redémarrer le serveur.
 
 ---
 
 ## Installation par Docker
 
 ```bash
-cp .env.example .env      # à la racine, lu par Compose
+cp .env.example .env           # à la racine, lu par Compose
+docker network create marsa_net   # une seule fois, réseau partagé avec MarsaTrack
 docker compose up -d --build
 ```
 
 Interface sur http://localhost, API sur http://localhost:3000.
+
+**Deux réseaux.** `marsabot_interne` est privé au stack et disparaît avec lui.
+`marsa_net` est déclaré externe : il doit exister avant le démarrage, survit à
+un `docker compose down`, et permet à MarsaBot et à MarsaTrack AI de s'appeler
+par leur nom de conteneur. Seul le backend y est raccordé — MySQL et le
+frontend restent sur le réseau privé.
+
+Le backend porte un healthcheck qui interroge sa sonde `/health`, laquelle
+vérifie réellement MySQL et Ollama. Le conteneur n'est donc déclaré sain que
+lorsque ses dépendances répondent.
 
 **Ollama doit tourner sur la machine hôte** — il ne fait pas partie de la stack.
 Le backend le joint via `host.docker.internal`, et les deux modèles doivent y
@@ -203,7 +224,7 @@ correspondre exactement à la sortie de `ollama list`.
 | Port | Service | Requis |
 | --- | --- | --- |
 | 3000 | API backend | oui |
-| 5173 | Frontend Vite (développement) | oui en dev |
+| 5174 | Frontend Vite (développement) | oui en dev — 5173 est laissé à MarsaTrack AI |
 | 3306 | MySQL | oui — le serveur s'arrête si la connexion échoue |
 | 11434 | Ollama | oui — aucune réponse de bot sans lui |
 | 80 | Nginx | mode Docker uniquement |
@@ -313,3 +334,55 @@ document ou à une source.
 Reste à traiter avant un déploiement exposé : le contenu des documents et des
 réponses d'API, aujourd'hui injecté brut dans le prompt du modèle, sans
 séparation entre instructions et données.
+
+### Forme du jeton
+
+`POST /api/admin/login` renvoie un JWT signé en HS256 avec `JWT_SECRET`,
+**valable 8 heures**. `JWT_SECRET` n'a aucun repli en dur : sans la variable, la
+connexion échoue plutôt que de signer avec une valeur devinable.
+
+```json
+{
+  "id": 42,
+  "email": "admin@marsamaroc.ma",
+  "nom": "Administrateur",
+  "role": "Admin",
+  "iat": 1757000000,
+  "exp": 1757028800
+}
+```
+
+Le claim `role` aligne la forme du jeton sur celle de MarsaTrack AI, où les
+rôles `Admin` et `Portiqueur` existent déjà. MarsaBot n'a qu'un seul type de
+compte : la valeur est constante, la table `admins` n'a pas de colonne `role`,
+et **aucun contrôle d'autorisation ne s'appuie sur ce claim aujourd'hui**. Il
+est présent pour que les deux services parlent la même langue le jour d'une
+authentification commune. Le jeton ne transporte aucun secret : ni empreinte de
+mot de passe, ni clé.
+
+Le jeton est exigé par `/api/bots`, `/api/knowledge` et `/api/settings`.
+`/api/admin/login`, `/api/admin/setup`, `/api/health` et `/health` sont
+publiques.
+
+### Sondes
+
+| Route | Auth | Ce qu'elle fait |
+| --- | --- | --- |
+| `/api/health` | non | Déclarative : répond toujours 200 si le serveur HTTP est vivant. Distingue un serveur mort d'une dépendance en panne |
+| `/health` | non | Interroge réellement MySQL (`SELECT 1`) et Ollama (`/api/tags`). **200** si les deux répondent, **503** sinon. Sert de healthcheck au conteneur |
+
+```json
+{
+  "status": "OK",
+  "timestamp": "2026-09-04T14:31:23.928Z",
+  "dependances": {
+    "mysql":  { "statut": "ok", "duree_ms": 119 },
+    "ollama": { "statut": "ok", "duree_ms": 108,
+                "url": "http://localhost:11434", "modeles": 3 }
+  }
+}
+```
+
+Un Ollama joignable mais sans modèle installé reste en `ok` avec
+`"modeles": 0` — de quoi diagnostiquer un bot muet alors que tout semble en
+ligne.

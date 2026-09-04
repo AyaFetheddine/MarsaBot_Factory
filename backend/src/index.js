@@ -17,6 +17,7 @@ const knowledgeRoutes = require('./routes/knowledgeRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const authMiddleware = require('./middlewares/authMiddleware');
 const { optionsCors, optionsHelmet } = require('./config/securite');
+const { sante } = require('./controllers/healthController');
 
 const app = express();
 
@@ -33,6 +34,10 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/bots', authMiddleware, botRoutes);
 app.use('/api/knowledge', authMiddleware, knowledgeRoutes);
 app.use('/api/settings', authMiddleware, settingsRoutes);
+
+// GET /health — sonde reelle des dependances (MySQL, Ollama), sans
+// authentification : le healthcheck du conteneur ne dispose d aucun jeton.
+app.get('/health', sante);
 
 // Route de test
 app.get('/api/health', (_req, res) => {

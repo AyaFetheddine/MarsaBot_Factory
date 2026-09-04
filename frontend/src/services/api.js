@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+// L'URL de l'API est fournie au moment de la compilation par VITE_API_URL.
+// Le repli couvre le développement local, ou la variable n'est pas renseignée.
+// Vite n'expose que les variables prefixees VITE_, et leur valeur est figee
+// dans le bundle : changer d'API impose donc de reconstruire le frontend.
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
 });
 
 api.interceptors.request.use((config) => {

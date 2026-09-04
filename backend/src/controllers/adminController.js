@@ -2,6 +2,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/db');
 
+// Seul role emis par MarsaBot. Nomme comme le role equivalent de MarsaTrack AI.
+const ROLE_ADMIN = 'Admin';
+
 // POST /login
 async function login(req, res) {
   try {
@@ -18,7 +21,17 @@ async function login(req, res) {
     if (!valid) {
       return res.status(401).json({ success: false, message: 'Identifiants invalides.' });
     }
-    const token = jwt.sign({ id: admin.id, email: admin.email, nom: admin.nom }, process.env.JWT_SECRET, { expiresIn: '8h' });
+    // Le claim role aligne la forme du jeton sur celle de MarsaTrack AI, ou les
+    // roles Admin et Portiqueur existent deja. MarsaBot n a qu un seul type de
+    // compte : la valeur est donc constante, et la table admins n a pas de
+    // colonne role. Le claim est present des maintenant pour que les deux
+    // services parlent la meme langue le jour d une authentification commune ;
+    // aucun controle d autorisation ne s appuie sur lui aujourd hui.
+    const token = jwt.sign(
+      { id: admin.id, email: admin.email, nom: admin.nom, role: ROLE_ADMIN },
+      process.env.JWT_SECRET,
+      { expiresIn: '8h' }
+    );
     res.json({ success: true, token });
   } catch (error) {
     console.error('Erreur login admin :', error);
