@@ -1,12 +1,20 @@
 const multer = require('multer');
 const path = require('path');
 
+// Formats reellement traites par le controleur d upload : PDF, TXT, CSV.
+// Le .xlsx etait accepte ici sans etre extrait ensuite : le document etait
+// enregistre vide, jamais vectorise, et n alimentait aucune reponse. Il est
+// desormais refuse a l entree, avec un message explicite, plutot que d etre
+// accueilli pour ne servir a rien.
+//
+// application/vnd.ms-excel est conserve : Windows attribue frequemment ce type
+// MIME aux fichiers .csv, qui eux sont bien traites. L extension reste
+// verifiee cote controleur.
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
   'text/plain',
   'text/csv',
   'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ]);
 
 const storage = multer.diskStorage({
@@ -25,7 +33,7 @@ function fileFilter(_req, file, cb) {
   } else {
     // status = 400 : erreur imputable au client, pas au serveur.
     // Le gestionnaire global d index.js s en sert pour repondre en JSON.
-    const erreur = new Error('Type de fichier non autorisé. Formats acceptés : PDF, TXT, CSV, XLSX.');
+    const erreur = new Error('Type de fichier non autorisé. Formats acceptés : PDF, TXT, CSV.');
     erreur.status = 400;
     cb(erreur);
   }

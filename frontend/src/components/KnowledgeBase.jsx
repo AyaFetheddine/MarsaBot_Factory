@@ -347,7 +347,7 @@ const handleAddApiSource = async () => {
       <div className="kb-page-header">
         <h1 className="kb-title">Base de Connaissances</h1>
         <p className="kb-subtitle">
-          Importez les documents (PDF, TXT, Excel, CSV) qui serviront de base de données à vos agents IA.
+          Importez les documents (PDF, TXT, CSV) qui serviront de base de données à vos agents IA.
         </p>
       </div>
 
@@ -389,7 +389,7 @@ const handleAddApiSource = async () => {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.txt,.xlsx,.csv"
+            accept=".pdf,.txt,.csv"
             multiple
             hidden
             onChange={handleFileSelect}
@@ -408,7 +408,7 @@ const handleAddApiSource = async () => {
             ) : (
               <p className="kb-dropzone-warning">&#9888;&#65039; Veuillez d&apos;abord sélectionner un bot à configurer</p>
             )}
-            <p className="kb-dropzone-hint">PDF, TXT, Excel, CSV &#8212; 20 Mo max par fichier</p>
+            <p className="kb-dropzone-hint">PDF, TXT, CSV &#8212; 20 Mo max par fichier</p>
             <button
               type="button"
               className="kb-browse-btn"

@@ -265,9 +265,10 @@ dessus donnerait une réponse fausse sans que rien ne le signale. Un bouton
 *Réindexer* relance l'opération. L'écriture des chunks est transactionnelle,
 donc un échec en cours de route ne laisse jamais d'indexation à moitié faite.
 
-**Fichiers Excel.** Les `.xlsx` sont acceptés à l'upload mais leur contenu n'est
-pas extrait : le document est enregistré vide et n'alimente pas les réponses.
-Utiliser le format CSV.
+**Fichiers Excel.** Les `.xlsx` ne sont **pas** pris en charge et sont refusés à
+l'envoi. Ils étaient auparavant acceptés sans que leur contenu soit extrait : le
+document était enregistré vide et n'alimentait aucune réponse, sans que rien ne
+l'indique. Convertir le classeur en CSV avant de l'importer.
 
 **Aucun statut d'indexation.** La vectorisation est lancée sans attente et ses
 erreurs ne sont que journalisées. Si Ollama est arrêté au moment de l'upload, le
