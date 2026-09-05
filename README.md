@@ -218,6 +218,26 @@ URL d'Ollama et modèle de génération. Les valeurs sont relues **à chaque
 message** : changer de modèle ne demande aucun redémarrage. Le nom doit
 correspondre exactement à la sortie de `ollama list`.
 
+### Affichage depuis le portail MarsaPort AI
+
+La console peut être consultée de deux façons :
+
+- **seule**, sur `http://localhost:5174` — apparence inchangée, barre latérale
+  et en-tête compris ;
+- **depuis le portail MarsaPort AI**, qui l'affiche dans un cadre. Le portail
+  fournissant déjà une navigation et un en-tête, la console détecte
+  l'encadrement et masque les siens, pour qu'une seule barre latérale reste
+  visible.
+
+Seule la coquille est masquée : aucun contenu, aucune fonctionnalité et aucun
+appel à l'API ne changent. Le portail ne fait que référencer l'adresse de la
+console, il n'appelle jamais son backend.
+
+⚠️ **Session distincte.** Les deux interfaces vivent sur des ports différents,
+donc sur des origines différentes : leurs sessions ne sont pas partagées. À la
+première ouverture depuis le portail, la console demande sa propre connexion.
+Ce n'est pas une authentification unifiée.
+
 ---
 
 ## Ports
