@@ -204,3 +204,16 @@
     padding: 16px;
   }
 }
+
+/* ==============================
+   AFFICHAGE DANS UN CADRE
+   La console est encadree par le portail MarsaPort AI : celui-ci fournit deja
+   la barre laterale et l'en-tete. Le contenu occupe alors toute la surface
+   disponible, sans imposer la hauteur d'un ecran entier. Le fond uni de la
+   colonne principale est conserve : c'est lui qui doit couvrir le degrade de
+   page, pour que le module se fonde dans le portail.
+   Aucune regle ci-dessous ne s'applique quand la console est ouverte seule.
+   ============================== */
+.shell--embedded {
+  min-height: 100%;
+}
