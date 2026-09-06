@@ -167,3 +167,275 @@
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ── Indicateur d'etat du moteur ──────────────────────────────────────────
+   Remplace l'affichage brut de l'adresse du serveur : l'administrateur n'a pas
+   a deduire d'une URL si le moteur fonctionne, l'application le lui dit. */
+.st-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  max-width: 520px;
+}
+
+.st-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.st-status-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.st-status-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.st-status-detail {
+  font-size: 0.8rem;
+  opacity: 0.85;
+  overflow-wrap: anywhere;
+}
+
+.st-status--ok {
+  background: #eefaf3;
+  border-color: #b6e5cd;
+  color: #1b5e3f;
+}
+.st-status--ok .st-status-dot { background: #21a366; }
+
+.st-status--ko {
+  background: #fdf1f1;
+  border-color: #f2c4c4;
+  color: #9b2c2c;
+}
+.st-status--ko .st-status-dot { background: #d64545; }
+
+/* Session expiree : ce n'est ni une panne du moteur ni une erreur de saisie,
+   mais une action a faire par l'administrateur. Teinte ambre pour la distinguer
+   d'un echec technique en rouge. */
+.st-status--session {
+  background: #fff8ec;
+  border-color: #f0d9a8;
+  color: #8a5a12;
+}
+.st-status--session .st-status-dot { background: #d99518; }
+
+.st-status--attente {
+  background: #f2f7fc;
+  border-color: #d5e4f2;
+  color: #40607f;
+}
+.st-status--attente .st-status-dot { background: #8aa5bf; }
+
+.st-test-btn {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border: 1.5px solid currentColor;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.st-test-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.7); }
+.st-test-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ── Liste deroulante des modeles ──────────────────────────────────────────
+   Dessinee par l'application : le menu d'un <select> natif est rendu par le
+   systeme, hors de portee du CSS, et sa surbrillance gris sombre jurait avec la
+   charte bleue du portail. */
+.st-combo {
+  position: relative;
+  max-width: 520px;
+}
+
+.st-combo-champ {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid #c8d8e8;
+  border-radius: 6px;
+  background: #f8fbff;
+  font: inherit;
+  font-size: 0.95rem;
+  color: #0d253f;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+}
+
+.st-combo-champ:hover:not(:disabled) { border-color: #9dbdd8; }
+
+.st-combo-champ:focus-visible,
+.st-combo-champ--ouvert {
+  outline: none;
+  border-color: #0099cc;
+  box-shadow: 0 0 0 3px rgba(0, 153, 204, 0.15);
+  background: #ffffff;
+}
+
+.st-combo-champ:disabled {
+  background: #f2f6fa;
+  border-color: #dde8f2;
+  color: #93aac1;
+  cursor: not-allowed;
+}
+
+.st-combo-vide { color: #9ab0c8; }
+
+.st-combo-fleche {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid #5b7a99;
+  border-bottom: 2px solid #5b7a99;
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 0.18s;
+}
+
+.st-combo-fleche--ouverte { transform: rotate(-135deg) translate(-3px, -3px); }
+
+.st-combo-champ:disabled .st-combo-fleche {
+  border-color: #b9cbdc;
+}
+
+.st-combo-liste {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 5px;
+  list-style: none;
+  background: #ffffff;
+  border: 1px solid #dce8f4;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 56, 130, 0.14);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.st-combo-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  font: inherit;
+  font-size: 0.92rem;
+  color: #1c3d6b;
+  text-align: left;
+  cursor: pointer;
+}
+
+.st-combo-option--survolee {
+  background: #eaf4fb;
+  color: #003882;
+}
+
+.st-combo-option--choisie {
+  font-weight: 600;
+  color: #003882;
+}
+
+.st-combo-coche {
+  color: #0099cc;
+  font-weight: 700;
+}
+
+/* Bouton de verification, place aupres du champ d'adresse : c'est la seule
+   valeur qu'il ait un sens de tester avant de l'enregistrer. */
+.st-verifier-btn {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 7px 16px;
+  border: 1.5px solid #c8d8e8;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #003882;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, color 0.18s;
+}
+
+.st-verifier-btn:hover:not(:disabled) {
+  background: #003882;
+  border-color: #003882;
+  color: #ffffff;
+}
+
+.st-verifier-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.st-input-warning {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #9b2c2c;
+}
+
+/* ── Parametres avances ──────────────────────────────────────────────────
+   L'adresse du serveur ne change quasiment jamais. Elle reste accessible, mais
+   repliee : la page ne s'ouvre plus sur un champ que l'administrateur ne doit
+   pas toucher. */
+.st-advanced {
+  border-top: 1px solid #e6eef6;
+  padding-top: 16px;
+}
+
+.st-advanced-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #5b7a99;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.st-advanced-toggle:hover { color: #003882; }
+
+.st-chevron {
+  display: inline-block;
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: transform 0.18s;
+}
+
+.st-chevron--open { transform: rotate(90deg); }
+
+.st-advanced-body { padding-top: 16px; }
+
+/* ── Retours de sauvegarde ── */
+.st-feedback--erreur {
+  color: #9b2c2c;
+  max-width: 520px;
+}

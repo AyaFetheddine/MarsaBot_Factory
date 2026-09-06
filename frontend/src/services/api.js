@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { signalerSessionExpiree } from './sessionPortail';
 
 // L'URL de l'API est fournie au moment de la compilation par VITE_API_URL.
 // Le repli couvre le développement local, ou la variable n'est pas renseignée.
@@ -17,6 +18,28 @@ api.interceptors.request.use((config) => {
 
   return config;
 });
+
+/**
+ * Un 401 signifie que le jeton est absent, perime ou signe avec un autre
+ * secret. Sans ce traitement l'application se croyait connectee — App.jsx ne
+ * teste que la PRESENCE du jeton — et chaque page affichait une erreur
+ * technique differente au lieu de proposer de se reconnecter.
+ *
+ * Deux exceptions volontaires :
+ *  - la connexion elle-meme, dont le 401 signale un mot de passe errone ;
+ *  - le 403, ou le jeton est authentique mais le role insuffisant : se
+ *    reconnecter n'y changerait rien.
+ */
+api.interceptors.response.use(
+  (reponse) => reponse,
+  (erreur) => {
+    const estConnexion = String(erreur.config?.url || '').includes('/admin/login');
+    if (erreur.response?.status === 401 && !estConnexion) {
+      signalerSessionExpiree();
+    }
+    return Promise.reject(erreur);
+  },
+);
 
 export async function login(email, password) {
   const response = await api.post('/admin/login', { email, password });
@@ -74,6 +97,14 @@ export function deleteBotApiSource(botId, sourceId) {
 
 export function getSystemSettings() {
   return api.get('/settings');
+}
+
+/**
+ * Etat du moteur IA et modeles installes. `url` permet de tester une adresse
+ * avant de l'enregistrer ; sans elle, l'adresse en base est utilisee.
+ */
+export function getEtatMoteur(url) {
+  return api.get('/settings/moteur', url ? { params: { url } } : undefined);
 }
 
 export function updateSystemSettings(settingsObject) {

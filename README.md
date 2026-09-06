@@ -104,7 +104,7 @@ Renseigner `backend/.env` :
 | Variable | Obligatoire | Détail |
 | --- | --- | --- |
 | `DB_HOST` `DB_USER` `DB_PASSWORD` `DB_NAME` | oui | Connexion MySQL, base `marsabot_db` |
-| `JWT_SECRET` | **oui** | Sans elle, la connexion renvoie une erreur 500 |
+| `JWT_SECRET` | **oui** | Sans elle, la connexion renvoie une erreur 500. **Doit être identique à celle de MarsaTrack AI** : le portail transmet son jeton à la console encadrée. Une divergence déconnecte tout le monde en silence |
 | `DEFAULT_ADMIN_PASSWORD` | oui | Mot de passe de l'admin initial |
 | `PORT` | non | 3000 par défaut |
 | `OLLAMA_URL` | non | `http://localhost:11434` par défaut |
@@ -216,9 +216,26 @@ serveur, les bots au statut `actif` se reconnectent seuls, sans nouveau QR.
 
 ### Paramètres
 
-URL d'Ollama et modèle de génération. Les valeurs sont relues **à chaque
-message** : changer de modèle ne demande aucun redémarrage. Le nom doit
-correspondre exactement à la sortie de `ollama list`.
+Modèle de génération, et adresse d'Ollama repliée dans **Paramètres avancés**.
+Les valeurs sont relues **à chaque message** : changer de modèle ne demande
+aucun redémarrage.
+
+L'administrateur ne saisit aucun nom de modèle. `GET /api/settings/moteur`
+(lecture seule) interroge le moteur côté serveur — le navigateur ne peut pas
+l'appeler lui-même — et renvoie son état et ses modèles installés, qui peuplent
+une liste déroulante. Les modèles de vectorisation en sont exclus :
+`nomic-embed-text` sert au calcul des embeddings et ne sait pas rédiger, le
+choisir rendrait tous les bots muets sans erreur visible avant le message
+suivant.
+
+`PUT /api/settings` **refuse une configuration qui ne fonctionne pas** : adresse
+non `http(s)`, moteur injoignable, modèle absent de la machine, clé inconnue.
+Auparavant toute valeur était acceptée, l'interface affichait « Paramètres
+sauvegardés », et la panne n'apparaissait qu'au message WhatsApp suivant. Deux
+tolérances utiles : un schéma manquant est complété (`localhost:11434` devient
+`http://localhost:11434`), et `llama3.2` est résolu vers `llama3.2:latest`, la
+forme publiée par Ollama — sans jamais remplacer une étiquette explicite, pour
+que demander `qwen2.5:14b` échoue au lieu de retomber sur le 7b.
 
 ### État opérationnel MarsaTrack AI — source intégrée
 
@@ -268,10 +285,20 @@ Seule la coquille est masquée : aucun contenu, aucune fonctionnalité et aucun
 appel à l'API ne changent. Le portail ne fait que référencer l'adresse de la
 console, il n'appelle jamais son backend.
 
-⚠️ **Session distincte.** Les deux interfaces vivent sur des ports différents,
-donc sur des origines différentes : leurs sessions ne sont pas partagées. À la
-première ouverture depuis le portail, la console demande sa propre connexion.
-Ce n'est pas une authentification unifiée.
+**Session partagée.** Les deux interfaces vivent sur des ports différents, donc
+sur des origines différentes : leurs `localStorage` sont cloisonnés par le
+navigateur et le jeton ne peut pas simplement être lu. Le portail le transmet
+donc par `postMessage`, après que la console a signalé être prête à le recevoir,
+chaque message étant restreint à une origine écrite en dur. Les deux services
+signent avec le **même** `JWT_SECRET` : un jeton MarsaTrack AI est accepté ici.
+L'utilisateur ne s'authentifie qu'une fois.
+
+Encadrée, la console écarte tout jeton local dès le premier rendu et attend
+celui du portail : un jeton périmé provoquerait sinon un 401, donc la
+déconnexion du portail, alors que le bon jeton est déjà en route. Elle n'affiche
+jamais son propre formulaire de connexion — c'est le portail qui déconnecte et
+présente son écran d'authentification. Ouverte seule sur `:5174`, elle retrouve
+exactement son comportement d'avant.
 
 ---
 
@@ -480,13 +507,21 @@ connexion échoue plutôt que de signer avec une valeur devinable.
 }
 ```
 
-Le claim `role` aligne la forme du jeton sur celle de MarsaTrack AI, où les
-rôles `Admin` et `Portiqueur` existent déjà. MarsaBot n'a qu'un seul type de
-compte : la valeur est constante, la table `admins` n'a pas de colonne `role`,
-et **aucun contrôle d'autorisation ne s'appuie sur ce claim aujourd'hui**. Il
-est présent pour que les deux services parlent la même langue le jour d'une
-authentification commune. Le jeton ne transporte aucun secret : ni empreinte de
-mot de passe, ni clé.
+Le claim `role` aligne la forme du jeton sur celle de MarsaTrack AI. MarsaBot
+n'a qu'un seul type de compte, la valeur y est donc constante et la table
+`admins` n'a pas de colonne `role`.
+
+**Ce claim est vérifié.** Depuis le partage de `JWT_SECRET` avec MarsaTrack AI,
+la signature de *tous* les jetons MarsaTrack est valide ici, y compris ceux d'un
+Portiqueur ou d'un Chef d'équipe, qui n'ont rien à faire dans la gestion des
+assistants. Le middleware exige donc explicitement `role === "Admin"` : la
+signature prouve l'identité, elle n'accorde aucun droit à elle seule.
+
+Un rôle insuffisant reçoit **403**, pas 401. La distinction compte côté
+interface : un 401 déclenche la reconnexion, un 403 ne doit pas — se reconnecter
+n'y changerait rien, et la confusion produirait une boucle sans fin.
+
+Le jeton ne transporte aucun secret : ni empreinte de mot de passe, ni clé.
 
 Le jeton est exigé par `/api/bots`, `/api/knowledge` et `/api/settings`.
 `/api/admin/login`, `/api/admin/setup`, `/api/health` et `/health` sont
