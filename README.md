@@ -139,6 +139,20 @@ Crée le compte de matricule `DEFAULT_ADMIN_MATRICULE` (`admin` par défaut)
 avec le mot de passe de `DEFAULT_ADMIN_PASSWORD`. L'appel est refusé si un
 administrateur existe déjà.
 
+**Appel local uniquement.** Cette route ne peut pas exiger de jeton — aucun
+compte n'existe encore au moment où on l'appelle. Elle n'accepte donc que les
+requêtes venues de la machine elle-même, et répond **404** à toute autre : entre
+le démarrage d'une installation neuve et la création du compte, un tiers
+atteignant le port aurait sinon pu créer l'administrateur à la place de
+l'exploitant. L'adresse est lue sur le socket, jamais dans un en-tête : un
+`X-Forwarded-For: 127.0.0.1` ne trompe pas le contrôle.
+
+En conteneur, appeler depuis l'intérieur :
+
+```bash
+docker exec -it marsabot_backend curl http://localhost:3000/api/admin/setup
+```
+
 ### 4. Frontend
 
 ```bash
@@ -534,8 +548,9 @@ n'y changerait rien, et la confusion produirait une boucle sans fin.
 Le jeton ne transporte aucun secret : ni empreinte de mot de passe, ni clé.
 
 Le jeton est exigé par `/api/bots`, `/api/knowledge` et `/api/settings`.
-`/api/admin/login`, `/api/admin/setup`, `/api/health` et `/health` sont
-publiques.
+`/api/admin/login`, `/api/health` et `/health` sont publiques.
+`/api/admin/setup` n'exige pas de jeton — aucun compte n'existe quand on
+l'appelle — mais n'accepte que les requêtes venues de la machine elle-même.
 
 ### Sondes
 
