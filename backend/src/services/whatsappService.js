@@ -9,6 +9,7 @@ const agentService = require('./agentService');
 const { persistMessage, getHistory } = require('./historyService');
 const { verifierUrlSource, verifierRedirection } = require('../utils/urlGuard');
 const { masquerSecretsUrl, formaterEtatOperationnel } = require('../utils/apiSourceFormat');
+const marsatrackService = require('./marsatrackService');
 
 /**
  * Map des clients actifs : botId (string) → { client, status }
@@ -135,6 +136,17 @@ async function initializeWhatsApp(botId, qrCallback) {
         retrievedContext = '';
       }
 
+      // 3a bis. Etat operationnel MarsaTrack AI — source integree.
+      // Branchee sur tous les bots sans configuration : c'est la raison d'etre
+      // de la passerelle entre les deux applications. Une indisponibilite est
+      // sans consequence, le bot repond alors avec ses seuls documents.
+      const contextesApi = [];
+      const etatMarsatrack = await marsatrackService.recupererEtatOperationnel();
+      if (etatMarsatrack) {
+        contextesApi.push(`[Source: MarsaTrack AI — etat operationnel]\n${etatMarsatrack}`);
+        console.log(`🟣 Etat operationnel MarsaTrack injecte (${etatMarsatrack.length} caractères)`);
+      }
+
       // 3b. Sources API externes configurées pour ce bot
       let apiContext = '';
       try {
@@ -231,11 +243,17 @@ async function initializeWhatsApp(botId, qrCallback) {
             }
           }
           if (apiResults.length > 0) {
-            apiContext = apiResults.join('\n\n');
+            contextesApi.push(...apiResults);
           }
         }
       } catch (apiLookupErr) {
         console.warn('⚠️  Récupération des sources API échouée :', apiLookupErr.message);
+      }
+
+      // La source integree et les sources propres au bot forment un seul
+      // contexte : l'echec de l'une n'empeche jamais l'autre d'etre utilisee.
+      if (contextesApi.length > 0) {
+        apiContext = contextesApi.join('\n\n');
       }
 
       // 4. Court-circuit strict : refuser uniquement si aucun contexte du tout

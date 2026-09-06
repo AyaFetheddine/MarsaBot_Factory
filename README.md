@@ -203,6 +203,8 @@ sessions WhatsApp et les fichiers uploadés sont persistés par montage de volum
    (PDF, TXT, CSV — 20 Mo maximum) ou connecter une URL d'API sous l'onglet
    *Connexion API*. L'extraction, le découpage et la vectorisation sont
    déclenchés automatiquement.
+   *Rien à saisir pour MarsaTrack AI : chaque bot y est branché
+   automatiquement, voir la section ci-dessous.*
 4. **Mes Bots → Générer le QR Code** — scanner depuis WhatsApp du téléphone
    dédié : *Appareils connectés → Connecter un appareil*. La première génération
    peut prendre jusqu'à 60 secondes, le temps que Chromium démarre.
@@ -217,6 +219,39 @@ serveur, les bots au statut `actif` se reconnectent seuls, sans nouveau QR.
 URL d'Ollama et modèle de génération. Les valeurs sont relues **à chaque
 message** : changer de modèle ne demande aucun redémarrage. Le nom doit
 correspondre exactement à la sortie de `ollama list`.
+
+### État opérationnel MarsaTrack AI — source intégrée
+
+**Tous les bots sont branchés sur MarsaTrack AI, sans aucune saisie.**
+L'administrateur crée un bot, y dépose ses documents, et le bot répond déjà
+sur les opérations en cours, les personnels affectés et les arrêts de travail.
+Demander une adresse d'API à chaque création serait une charge inutile pour un
+administrateur non développeur, et une source d'oubli.
+
+Deux variables suffisent, côté serveur, une fois pour toutes :
+
+```
+MARSATRACK_BASE_URL=http://localhost:3001
+MARSATRACK_INTEGRATION_TOKEN=<le INTEGRATION_TOKEN du backend MarsaTrack>
+ALLOWED_INTERNAL_HOSTS=localhost:3001,127.0.0.1:3001
+```
+
+⚠️ En mode natif, ces variables vont dans **`backend/.env`** — c'est le fichier
+que `index.js` charge. Le `.env` à la racine ne sert qu'au mode Docker.
+
+Le jeton part dans l'en-tête `Authorization` : il n'est **jamais** stocké en
+base, **jamais** affiché dans l'interface, **jamais** présent dans une URL.
+Laisser ces variables vides désactive l'intégration sans rien casser.
+
+**Robustesse.** Si MarsaTrack est indisponible, l'appel échoue en silence après
+5 secondes et le bot répond avec ses seuls documents. Les sources API saisies
+manuellement continuent de fonctionner en parallèle.
+
+**Priorité des sources.** Quand l'état opérationnel répond à la question, il
+fait autorité : la recherche web n'est pas déclenchée, et l'historique de
+conversation ne peut pas le contredire. Ces deux garde-fous existent parce que
+leur absence produisait des réponses inventées — des noms de navires venus du
+web, puis recopiés d'une réponse à l'autre.
 
 ### Affichage depuis le portail MarsaPort AI
 

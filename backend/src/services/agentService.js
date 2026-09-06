@@ -29,7 +29,11 @@ function isWebQuestion(query) {
   const webKeywords = [
     'météo','meteo','température','temps','pluie','soleil',
     'actualité','actualite','news',"aujourd'hui",'maintenant',
-    'prix','tarif','cours','bourse',
+    // 'cours' seul a ete retire : en francais il apparait dans « en cours »,
+    // « au cours de »… La question metier la plus courante, « quelles
+    // operations sont en cours ? », declenchait ainsi une recherche web alors
+    // que la reponse se trouve dans les donnees temps reel du terminal.
+    'prix','tarif','cours de la bourse','bourse',
     'horaire','trafic','grève','greve',
     'résultat','resultat','score','match',
     'weather','today','current','now','latest',
@@ -72,7 +76,8 @@ function buildSystemMessage({ languageDirective, ragContext, apiContext, webCont
     `2. ISOLATION: NEVER mix or merge information from the internal documents with information from the external API. Treat them as completely separate and independent events.\n` +
     `3. IDENTIFIERS: Only link two pieces of information if they share the EXACT same identifier (e.g., same ID_Equipement, same incident ID). Never infer a link based on similar keywords like "panne" or "incident".\n` +
     `4. TRACEABILITY: If a breakdown, incident, or update comes from the API data section, ALWAYS indicate it is real-time or ongoing information (e.g., "according to real-time data...").\n` +
-    `5. MEMORY: Use the conversation history section to understand context if the user refers to equipment or a person already mentioned. Do NOT repeat the history in your answer.\n` +
+    `4b. PRIORITY: The DONNEES API TEMPS REEL section is the authoritative source about the terminal itself: current operations, assigned staff, work stoppages, vessels at berth. When it answers the question, use it ALONE and IGNORE the web results entirely, even if the web mentions other vessel or operation names. Never present a web result as an operation of the terminal.\n` +
+    `5. MEMORY: The conversation history serves ONLY to resolve what the user refers to (e.g. "and its last maintenance?" after naming a crane). It is NOT a source of facts: it contains your own past answers, which may be outdated or wrong. NEVER reuse a fact, a name or a figure found only in the history. Every fact in your answer must come from the documents, the API data or the web results of the CURRENT request. If the history contradicts the API data, the API data wins and the history is ignored.\n` +
     `6. If the answer is not in the data, say only the equivalent of "I don't have this information in my knowledge base. Can I help you with something else?" in the user's language.\n` +
     `7. NEVER say you are an AI, a language model, or mention a training cutoff date.\n` +
     `8. NEVER use general knowledge or external sources beyond what is provided.\n` +
@@ -114,7 +119,13 @@ async function askAgent(userQuery, ragContext, allowWebSearch = false, apiContex
   let webContext = '';
 
   if (allowWebSearch) {
-    const needsWebSearch = !ragContext || ragContext.trim() === '' || isWebQuestion(userQuery);
+    // Les donnees temps reel du terminal font autorite : quand elles sont
+    // disponibles, aller chercher sur le web n'apporte rien et expose a des
+    // reponses inventees. On ne cherche donc que si nous n'avons AUCUNE source
+    // interne, document comme API.
+    const aDesDonneesInternes =
+      Boolean(ragContext && ragContext.trim()) || Boolean(apiContext && apiContext.trim());
+    const needsWebSearch = !aDesDonneesInternes || isWebQuestion(userQuery);
     if (needsWebSearch) {
       try {
         const searchTool = new TavilySearch({ maxResults: 3, apiKey: process.env.TAVILY_API_KEY });

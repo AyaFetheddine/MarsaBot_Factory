@@ -98,9 +98,15 @@ function formaterEtatOperationnel(donnees) {
         const duree = a.duree_minutes === null || a.duree_minutes === undefined
           ? 'duree en cours'
           : `${a.duree_minutes} min`;
+        // Code et libelle sont facultatifs cote MarsaTrack : un arret peut
+        // n'avoir qu'un motif. Les interpoler sans verifier affichait
+        // "null null" dans le contexte transmis au modele.
+        const identification = [a.code_arret, a.libelle_arret]
+          .filter(Boolean)
+          .join(' ');
         lignes.push(
-          `  Arret actif : ${a.code_arret} ${a.libelle_arret} — motif : ${a.motif} — ` +
-          `debut ${dateCourte(a.debut)}, ${duree}`
+          `  Arret actif :${identification ? ` ${identification} —` : ''} ` +
+          `motif : ${a.motif} — debut ${dateCourte(a.debut)}, ${duree}`
         );
       }
     }
