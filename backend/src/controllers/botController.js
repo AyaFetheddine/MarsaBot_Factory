@@ -4,12 +4,12 @@ const { initializeWhatsApp, getClientStatus } = require('../services/whatsappSer
 // Créer un nouveau bot
 async function createBot(req, res) {
   try {
-    const { nom, description, specialite_domaine, numero_telephone, allow_general_knowledge } = req.body;
+    const { nom, specialite_domaine, numero_telephone, allow_general_knowledge } = req.body;
     const allowKnowledge = allow_general_knowledge ? 1 : 0;
 
     const [result] = await pool.execute(
-      'INSERT INTO bots (nom, description, specialite_domaine, numero_telephone, allow_general_knowledge) VALUES (?, ?, ?, ?, ?)',
-      [nom, description, specialite_domaine, numero_telephone, allowKnowledge]
+      'INSERT INTO bots (nom, specialite_domaine, numero_telephone, allow_general_knowledge) VALUES (?, ?, ?, ?)',
+      [nom, specialite_domaine, numero_telephone, allowKnowledge]
     );
 
     const [rows] = await pool.execute('SELECT * FROM bots WHERE id = ?', [result.insertId]);
@@ -79,12 +79,16 @@ function generateQrCode(req, res) {
 async function updateBot(req, res) {
   try {
     const { id } = req.params;
-    const { nom, description, specialite_domaine, numero_telephone, allow_general_knowledge } = req.body;
+    const { nom, specialite_domaine, numero_telephone, allow_general_knowledge } = req.body;
     const allowKnowledge = allow_general_knowledge ? 1 : 0;
 
+    // La colonne description existe toujours en base mais n'est plus ni saisie
+    // ni affichee : le nom et le domaine suffisent a identifier un bot, et
+    // aucun des deux champs n'entrait dans le contexte du modele. La requete
+    // ne la touche pas, ce qui preserve la valeur des bots deja crees.
     await pool.execute(
-      'UPDATE bots SET nom=?, description=?, specialite_domaine=?, numero_telephone=?, allow_general_knowledge=? WHERE id=?',
-      [nom, description, specialite_domaine, numero_telephone, allowKnowledge, id]
+      'UPDATE bots SET nom=?, specialite_domaine=?, numero_telephone=?, allow_general_knowledge=? WHERE id=?',
+      [nom, specialite_domaine, numero_telephone, allowKnowledge, id]
     );
 
     const [rows] = await pool.execute('SELECT * FROM bots WHERE id = ?', [id]);

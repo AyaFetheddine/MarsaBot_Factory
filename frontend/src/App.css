@@ -305,11 +305,6 @@ body {
   color: #48647e;
 }
 
-.bot-desc {
-  margin: 0;
-  color: #5d748a;
-}
-
 .bot-meta {
   display: grid;
   gap: 8px;

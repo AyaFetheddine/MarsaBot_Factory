@@ -68,11 +68,14 @@
 }
 
 /* ── Grille 2 colonnes ── */
-.db-grid {
-  display: grid;
-  grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
+/* Disposition en pile, pleine largeur : le formulaire n'apparait qu'a la
+   demande, au-dessus de la liste. Deux colonnes cote a cote laissaient une
+   colonne vide des que la liste s'allongeait, et bridaient la grille des
+   cartes a la moitie de la largeur disponible. */
+.db-stack {
+  display: flex;
+  flex-direction: column;
   gap: 24px;
-  align-items: start;
 }
 
 /* ── Panneaux ── */
@@ -110,6 +113,9 @@
 }
 
 /* ── Formulaire ── */
+/* Champs empiles. Les deux colonnes avaient ete introduites pour absorber la
+   hauteur du champ description ; celui-ci retire, il ne reste que trois champs
+   courts, et une seule colonne se lit plus naturellement de haut en bas. */
 .form-stack {
   display: flex;
   flex-direction: column;
@@ -128,8 +134,7 @@
   color: #1c3d6b;
 }
 
-.field input,
-.field textarea {
+.field input {
   width: 100%;
   box-sizing: border-box;
   padding: 10px 13px;
@@ -142,22 +147,15 @@
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.field input::placeholder,
-.field textarea::placeholder {
+.field input::placeholder {
   color: #9ab0c8;
 }
 
-.field input:focus,
-.field textarea:focus {
+.field input:focus {
   outline: none;
   border-color: #0099cc;
   box-shadow: 0 0 0 3px rgba(0, 153, 204, 0.15);
   background: #ffffff;
-}
-
-.field textarea {
-  min-height: 96px;
-  resize: vertical;
 }
 
 /* ── Bouton principal ── */
@@ -194,9 +192,14 @@
 /* ── Grille de bots ── */
 .bots-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 14px;
+  /* Pleine largeur disponible : 4 a 5 cartes par ligne sur un grand ecran,
+     contre 2 auparavant. */
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
   margin-top: 16px;
+  /* Hauteur uniforme : une carte dont un champ facultatif est vide ne doit
+     pas casser la regularite de la grille. */
+  align-items: stretch;
 }
 
 /* ── Carte bot ── */
@@ -249,13 +252,6 @@
 .badge.inactif {
   background: #e8eef5;
   color: #4a6582;
-}
-
-.bot-desc {
-  margin: 0;
-  color: #5b7a99;
-  font-size: 0.88rem;
-  line-height: 1.45;
 }
 
 .bot-meta {
@@ -564,9 +560,11 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 900px) {
-  .db-grid {
-    grid-template-columns: 1fr;
+/* La pile .db-stack est deja verticale : plus rien a redresser a 900 px.
+   Sur petit ecran, on ramene simplement la recherche sur toute la largeur. */
+@media (max-width: 640px) {
+  .bots-search {
+    width: 100%;
   }
 }
 
@@ -635,4 +633,90 @@
 .bot-edit-btn:hover {
   background: #eaf3fb;
   border-color: #0099cc;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   En-tete de page : actions groupees
+   ══════════════════════════════════════════════════════════════════════════ */
+.db-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Action principale de la page : creer un bot. Elle deplie le formulaire au
+   lieu de l'afficher en permanence — on consulte la liste souvent, on cree
+   rarement. */
+.db-new-btn {
+  padding: 8px 18px;
+  border: 1.5px solid #003882;
+  border-radius: 6px;
+  background: #003882;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s;
+}
+
+.db-new-btn:hover {
+  background: #0099cc;
+  border-color: #0099cc;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   En-tete de la liste et recherche
+   ══════════════════════════════════════════════════════════════════════════ */
+.bots-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* N'apparait qu'au-dela de trois bots : inutile tant que la liste tient d'un
+   seul coup d'oeil. */
+.bots-search {
+  min-width: 220px;
+  padding: 8px 12px;
+  border: 1.5px solid #dce8f4;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #14324d;
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.bots-search:focus {
+  outline: none;
+  border-color: #0099cc;
+  box-shadow: 0 0 0 3px rgba(0, 153, 204, 0.15);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Etat vide : oriente vers l'action au lieu d'une zone morte
+   ══════════════════════════════════════════════════════════════════════════ */
+.empty-state-icon {
+  display: block;
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+.empty-state-title {
+  font-weight: 700;
+  color: #003882;
+  margin: 0 0 4px;
+}
+
+.empty-state .db-new-btn {
+  margin-top: 14px;
+}
+
+/* ── Cartes : la zone d'actions reste collee en bas quelle que soit la
+   quantite de texte au-dessus, pour que la grille reste reguliere. ── */
+.bot-card-actions {
+  margin-top: auto;
 }

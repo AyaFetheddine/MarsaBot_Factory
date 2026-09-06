@@ -5,7 +5,6 @@ import './Dashboard.css';
 
 const initialForm = {
   nom: '',
-  description: '',
   specialite_domaine: '',
   numero_telephone: '',
   allow_general_knowledge: false,
@@ -29,6 +28,11 @@ function Dashboard() {
   const [error, setError] = useState('');
   const [qrModal, setQrModal] = useState(initialQrModal);
   const [editingBotId, setEditingBotId] = useState(null);
+  // Le formulaire est replie par defaut : on consulte la liste souvent, on cree
+  // un bot rarement. Il s'ouvre au clic sur « Nouveau bot », ou automatiquement
+  // lors d'une modification.
+  const [formulaireOuvert, setFormulaireOuvert] = useState(false);
+  const [recherche, setRecherche] = useState('');
 
   const fetchBots = async () => {
     try {
@@ -102,24 +106,36 @@ function Dashboard() {
   const handleEditBot = (bot) => {
     setForm({
       nom: bot.nom || '',
-      description: bot.description || '',
       specialite_domaine: bot.specialite_domaine || '',
       numero_telephone: bot.numero_telephone || '',
       allow_general_knowledge: Boolean(bot.allow_general_knowledge),
     });
     setEditingBotId(bot.id);
+    setFormulaireOuvert(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleCancelEdit = () => {
     setForm(initialForm);
     setEditingBotId(null);
+    setFormulaireOuvert(false);
   };
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
     setForm((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }));
   };
+
+  // Recherche sur le nom, le domaine et le numero : ce sont les trois reperes
+  // par lesquels un administrateur identifie un bot dans une longue liste.
+  const termeRecherche = recherche.trim().toLowerCase();
+  const botsFiltres = termeRecherche
+    ? bots.filter((bot) =>
+        [bot.nom, bot.specialite_domaine, bot.numero_telephone]
+          .filter(Boolean)
+          .some((champ) => String(champ).toLowerCase().includes(termeRecherche)),
+      )
+    : bots;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -134,6 +150,7 @@ function Dashboard() {
         await createBot(form);
       }
       setForm(initialForm);
+      setFormulaireOuvert(false);
       await fetchBots();
     } catch (requestError) {
       const status = requestError.response?.status;
@@ -155,14 +172,24 @@ function Dashboard() {
           <h2 className="db-title">Mes Bots</h2>
           <p className="db-subtitle">Créez et supervisez vos chatbots WhatsApp.</p>
         </div>
-        <button className="db-refresh-btn" type="button" onClick={fetchBots} disabled={fetching}>
-          {fetching ? 'Actualisation…' : 'Actualiser'}
-        </button>
+        <div className="db-header-actions">
+          <button
+            className="db-new-btn"
+            type="button"
+            onClick={() => (formulaireOuvert ? handleCancelEdit() : setFormulaireOuvert(true))}
+          >
+            {formulaireOuvert ? '✕ Fermer' : '＋ Nouveau bot'}
+          </button>
+          <button className="db-refresh-btn" type="button" onClick={fetchBots} disabled={fetching}>
+            {fetching ? 'Actualisation…' : 'Actualiser'}
+          </button>
+        </div>
       </div>
 
       {error ? <div className="db-error">{error}</div> : null}
 
-      <section className="db-grid">
+      <section className="db-stack">
+        {formulaireOuvert && (
         <section className="db-panel">
           <div className="panel-header-inline">
             <div>
@@ -194,17 +221,6 @@ function Dashboard() {
                 type="text"
                 placeholder="Ex: Logistique, Support, Tracking..."
                 value={form.specialite_domaine}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="field">
-              <label htmlFor="description">Description</label>
-              <textarea
-                id="description"
-                name="description"
-                placeholder="Décrivez le rôle métier du bot..."
-                value={form.description}
                 onChange={handleChange}
               />
             </div>
@@ -253,20 +269,51 @@ function Dashboard() {
             </div>
           </form>
         </section>
+        )}
 
         <section className="db-panel db-bots-panel">
-          <div>
-            <h2>Liste des bots</h2>
-            <p>{bots.length} bot{bots.length > 1 ? 's' : ''} enregistré{bots.length > 1 ? 's' : ''} dans la plateforme.</p>
+          <div className="bots-panel-header">
+            <div>
+              <h2>Liste des bots</h2>
+              <p>
+                {botsFiltres.length === bots.length
+                  ? `${bots.length} bot${bots.length > 1 ? 's' : ''} enregistré${bots.length > 1 ? 's' : ''} dans la plateforme.`
+                  : `${botsFiltres.length} bot${botsFiltres.length > 1 ? 's' : ''} sur ${bots.length}.`}
+              </p>
+            </div>
+
+            {bots.length > 3 && (
+              <input
+                className="bots-search"
+                type="search"
+                placeholder="Rechercher un bot…"
+                value={recherche}
+                onChange={(e) => setRecherche(e.target.value)}
+                aria-label="Rechercher un bot par nom, domaine ou numéro"
+              />
+            )}
           </div>
 
           {fetching ? (
             <div className="empty-state">Chargement des bots en cours...</div>
           ) : bots.length === 0 ? (
-            <div className="empty-state">Aucun bot disponible. Créez le premier depuis le panneau de gauche.</div>
+            <div className="empty-state">
+              <span className="empty-state-icon" aria-hidden="true">🤖</span>
+              <p className="empty-state-title">Aucun bot pour le moment</p>
+              <p>Créez votre premier assistant WhatsApp pour commencer.</p>
+              <button className="db-new-btn" type="button" onClick={() => setFormulaireOuvert(true)}>
+                ＋ Nouveau bot
+              </button>
+            </div>
+          ) : botsFiltres.length === 0 ? (
+            <div className="empty-state">
+              <span className="empty-state-icon" aria-hidden="true">🔍</span>
+              <p className="empty-state-title">Aucun résultat</p>
+              <p>Aucun bot ne correspond à « {recherche} ».</p>
+            </div>
           ) : (
             <div className="bots-grid">
-              {bots.map((bot) => (
+              {botsFiltres.map((bot) => (
                 <article key={bot.id} className="bot-card">
                   <div className="bot-card-header">
                     <span className="bot-name">{bot.nom}</span>
@@ -274,8 +321,6 @@ function Dashboard() {
                       {(bot.statut || 'inactif').toUpperCase()}
                     </span>
                   </div>
-
-                  {bot.description ? <p className="bot-desc">{bot.description}</p> : null}
 
                   <div className="bot-meta">
                     <span>Domaine: {bot.specialite_domaine || 'Non renseigné'}</span>
