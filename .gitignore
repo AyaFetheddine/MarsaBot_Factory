@@ -16,3 +16,13 @@ Desktop.ini
 # Éditeurs
 .vscode/
 .idea/
+
+# --- Sauvegardes locales : filet de securite ------------------------------
+# Le dossier de sauvegarde vit NORMALEMENT hors de ce depot. Cette regle existe
+# pour le cas ou il y serait copie par erreur : il contient les fichiers .env en
+# clair (mots de passe de base, secret JWT, cles d'API) et les depots sont
+# publics. Un fichier deja suivi ne serait PAS couvert par cette regle : git
+# n'ignore que ce qu'il ne suit pas encore.
+Sauvegarde_*/
+Sauvegarde*/
+*.sql.bak
