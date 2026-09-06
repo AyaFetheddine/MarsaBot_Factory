@@ -2,35 +2,45 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/db');
 
-// Seul role emis par MarsaBot. Nomme comme le role equivalent de MarsaTrack AI.
 const ROLE_ADMIN = 'Admin';
 
-// POST /login
+/**
+ * Connexion directe a la console, hors du portail.
+ *
+ * Depuis la fusion, l'administrateur entre normalement par MarsaPort AI, qui
+ * transmet son jeton a la console encadree. Ce chemin subsiste comme acces de
+ * secours, utilisable si le portail est indisponible.
+ *
+ * L'identifiant est le MATRICULE, celui-la meme qui ouvre le portail : une
+ * seule personne, un seul compte, un seul identifiant. Demander une adresse
+ * e-mail ici et un matricule la-bas faisait paraitre deux comptes distincts
+ * pour un seul utilisateur.
+ */
 async function login(req, res) {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Email et mot de passe requis.' });
+    const { matricule, password } = req.body;
+    if (!matricule || !password) {
+      return res.status(400).json({ success: false, message: 'Matricule et mot de passe requis.' });
     }
-    const [rows] = await pool.execute('SELECT * FROM admins WHERE email = ?', [email]);
-    if (!rows.length) {
+
+    const [rows] = await pool.execute('SELECT * FROM admins WHERE matricule = ?', [matricule]);
+    if (rows.length === 0) {
       return res.status(401).json({ success: false, message: 'Identifiants invalides.' });
     }
+
     const admin = rows[0];
-    const valid = await bcrypt.compare(password, admin.password_hash);
-    if (!valid) {
+    const valide = await bcrypt.compare(password, admin.password_hash);
+    if (!valide) {
       return res.status(401).json({ success: false, message: 'Identifiants invalides.' });
     }
-    // Le claim role aligne la forme du jeton sur celle de MarsaTrack AI, ou les
-    // roles Admin et Portiqueur existent deja. MarsaBot n a qu un seul type de
-    // compte : la valeur est donc constante, et la table admins n a pas de
-    // colonne role. Le claim est present des maintenant pour que les deux
-    // services parlent la meme langue le jour d une authentification commune ;
-    // aucun controle d autorisation ne s appuie sur lui aujourd hui.
+
+    // Meme forme de charge utile que MarsaTrack AI : id, matricule, role. Le
+    // claim role est verifie par le middleware, la signature seule n'ouvrant
+    // aucun droit depuis que les deux services partagent leur secret.
     const token = jwt.sign(
-      { id: admin.id, email: admin.email, nom: admin.nom, role: ROLE_ADMIN },
+      { id: admin.id, matricule: admin.matricule, nom: admin.nom, role: ROLE_ADMIN },
       process.env.JWT_SECRET,
-      { expiresIn: '8h' }
+      { expiresIn: '8h' },
     );
     res.json({ success: true, token });
   } catch (error) {
@@ -46,12 +56,15 @@ async function createDefaultAdmin(req, res) {
     if (rows[0].count > 0) {
       return res.json({ success: false, message: 'Un admin existe déjà.' });
     }
-    const email = 'admin@marsamaroc.ma';
+    const matricule = process.env.DEFAULT_ADMIN_MATRICULE || 'admin';
     const password = process.env.DEFAULT_ADMIN_PASSWORD || 'change_me_in_production';
     const nom = 'Administrateur';
-    const password_hash = await bcrypt.hash(password, 10);
-    await pool.execute('INSERT INTO admins (email, password_hash, nom) VALUES (?, ?, ?)', [email, password_hash, nom]);
-    res.json({ success: true, message: 'Admin par défaut créé.', email, password });
+    const password_hash = await bcrypt.hash(password, 12);
+    await pool.execute(
+      'INSERT INTO admins (matricule, password_hash, nom) VALUES (?, ?, ?)',
+      [matricule, password_hash, nom],
+    );
+    res.json({ success: true, message: 'Admin par défaut créé.', matricule });
   } catch (error) {
     console.error('Erreur création admin par défaut :', error);
     res.status(500).json({ success: false, message: 'Erreur serveur.' });

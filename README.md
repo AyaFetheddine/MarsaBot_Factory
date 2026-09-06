@@ -135,8 +135,9 @@ Une seule fois, serveur démarré :
 curl http://localhost:3000/api/admin/setup
 ```
 
-Crée `admin@marsamaroc.ma` avec le mot de passe de `DEFAULT_ADMIN_PASSWORD`.
-L'appel est refusé si un administrateur existe déjà.
+Crée le compte de matricule `DEFAULT_ADMIN_MATRICULE` (`admin` par défaut)
+avec le mot de passe de `DEFAULT_ADMIN_PASSWORD`. L'appel est refusé si un
+administrateur existe déjà.
 
 ### 4. Frontend
 
@@ -293,6 +294,11 @@ chaque message étant restreint à une origine écrite en dur. Les deux services
 signent avec le **même** `JWT_SECRET` : un jeton MarsaTrack AI est accepté ici.
 L'utilisateur ne s'authentifie qu'une fois.
 
+La console conserve son propre écran de connexion comme **accès de secours**,
+utilisable en ouvrant `:5174` directement si le portail est indisponible. Il
+demande le même matricule et le même mot de passe que le portail : il ne s'agit
+pas d'un second compte, mais d'une seconde porte vers le même.
+
 Encadrée, la console écarte tout jeton local dès le premier rendu et attend
 celui du portail : un jeton périmé provoquerait sinon un 401, donc la
 déconnexion du portail, alors que le bon jeton est déjà en route. Elle n'affiche
@@ -420,7 +426,7 @@ conteneur.
 | Table | Rôle |
 | --- | --- |
 | `bots` | Les agents et leur configuration |
-| `admins` | Comptes d'administration |
+| `admins` | Compte d'administration, identifié par son **matricule** |
 | `documents` | Fichiers importés, texte extrait, statut d'indexation |
 | `document_chunks` | Morceaux de texte et leurs vecteurs |
 | `api_sources` | URL d'API interrogées par un bot |
@@ -498,14 +504,18 @@ connexion échoue plutôt que de signer avec une valeur devinable.
 
 ```json
 {
-  "id": 42,
-  "email": "admin@marsamaroc.ma",
+  "id": 1,
+  "matricule": "admin",
   "nom": "Administrateur",
   "role": "Admin",
   "iat": 1757000000,
   "exp": 1757028800
 }
 ```
+
+L'identifiant est le **matricule**, le même qui ouvre le portail MarsaPort AI.
+Une adresse e-mail ici et un matricule là-bas donnaient l'impression de deux
+comptes pour une seule personne, et faussaient le décompte des utilisateurs.
 
 Le claim `role` aligne la forme du jeton sur celle de MarsaTrack AI. MarsaBot
 n'a qu'un seul type de compte, la valeur y est donc constante et la table

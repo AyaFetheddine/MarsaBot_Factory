@@ -6,7 +6,8 @@ import './Login.css';
 
 function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  // Meme identifiant que le portail MarsaPort AI : une personne, un compte.
+  const [matricule, setMatricule] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -17,7 +18,7 @@ function Login() {
     setError('');
 
     try {
-      await login(email, password);
+      await login(matricule, password);
       navigate('/', { replace: true });
     } catch (requestError) {
       const message =
@@ -40,15 +41,15 @@ function Login() {
 
         <form className="lp-form" onSubmit={handleSubmit} noValidate>
           <div className="lp-field">
-            <label htmlFor="lp-email">Adresse email</label>
+            <label htmlFor="lp-matricule">Matricule</label>
             <input
-              id="lp-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="email@marsamaroc.ma"
+              id="lp-matricule"
+              type="text"
+              value={matricule}
+              onChange={(e) => setMatricule(e.target.value)}
+              placeholder="admin"
               required
-              autoComplete="email"
+              autoComplete="username"
             />
           </div>
 

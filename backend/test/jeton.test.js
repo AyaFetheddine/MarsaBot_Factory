@@ -36,13 +36,13 @@ async function obtenirJeton() {
   process.env.JWT_SECRET = SECRET;
   const admin = {
     id: 42,
-    email: 'admin@marsamaroc.ma',
+    matricule: 'admin',
     nom: 'Administrateur',
     password_hash: await bcrypt.hash(MOT_DE_PASSE, 4),
   };
   const { login } = chargerAdminController(admin);
   const res = creerReponse();
-  await login({ body: { email: admin.email, password: MOT_DE_PASSE } }, res);
+  await login({ body: { matricule: admin.matricule, password: MOT_DE_PASSE } }, res);
   return res;
 }
 
@@ -53,7 +53,7 @@ test('le jeton emis porte les claims documentes, role compris', async () => {
   const charge = jwt.verify(res.corps.token, SECRET);
 
   assert.strictEqual(charge.id, 42);
-  assert.strictEqual(charge.email, 'admin@marsamaroc.ma');
+  assert.strictEqual(charge.matricule, 'admin');
   assert.strictEqual(charge.nom, 'Administrateur');
   assert.strictEqual(charge.role, 'Admin', 'le role doit etre nomme comme celui de MarsaTrack');
 });
@@ -79,12 +79,12 @@ test('le jeton ne contient aucun secret', async () => {
 test('un mot de passe errone ne produit aucun jeton', async () => {
   process.env.JWT_SECRET = SECRET;
   const admin = {
-    id: 42, email: 'admin@marsamaroc.ma', nom: 'Administrateur',
+    id: 42, matricule: 'admin', nom: 'Administrateur',
     password_hash: await bcrypt.hash(MOT_DE_PASSE, 4),
   };
   const { login } = chargerAdminController(admin);
   const res = creerReponse();
-  await login({ body: { email: admin.email, password: 'mauvais' } }, res);
+  await login({ body: { matricule: admin.matricule, password: 'mauvais' } }, res);
 
   assert.strictEqual(res.code, 401);
   assert.strictEqual(res.corps.token, undefined);

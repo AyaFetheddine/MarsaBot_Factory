@@ -41,8 +41,8 @@ api.interceptors.response.use(
   },
 );
 
-export async function login(email, password) {
-  const response = await api.post('/admin/login', { email, password });
+export async function login(matricule, password) {
+  const response = await api.post('/admin/login', { matricule, password });
   const token = response.data?.token;
 
   if (token) {

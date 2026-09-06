@@ -50,7 +50,7 @@ services:
       DB_NAME: ${DB_NAME:-marsabot_db}
       JWT_SECRET: ${JWT_SECRET}
       # Mot de passe de l'admin par défaut créé via GET /api/admin/setup.
-      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-admin@marsamaroc.ma}
+      DEFAULT_ADMIN_MATRICULE: ${DEFAULT_ADMIN_MATRICULE:-admin}
       DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
       TAVILY_API_KEY: ${TAVILY_API_KEY}
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}

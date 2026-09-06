@@ -69,9 +69,12 @@ CREATE TABLE IF NOT EXISTS api_sources (
 -- -----------------------------------------
 -- Table : admins
 -- -----------------------------------------
+-- L'identifiant est le MATRICULE, comme dans MarsaTrack AI : depuis la fusion,
+-- la meme personne ouvre les deux modules et ne doit pas retenir deux
+-- identifiants differents pour un seul compte.
 CREATE TABLE IF NOT EXISTS admins (
   id            INT           AUTO_INCREMENT PRIMARY KEY,
-  email         VARCHAR(255)  UNIQUE NOT NULL,
+  matricule     VARCHAR(100)  UNIQUE NOT NULL,
   password_hash VARCHAR(255)  NOT NULL,
   nom           VARCHAR(100)
 ) ENGINE=InnoDB;
