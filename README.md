@@ -9,13 +9,31 @@ de connaissances (documents PDF/TXT/CSV et sources API externes), puis l'appaire
 dialogue avec un assistant qui répond à partir de ces sources, via un pipeline
 RAG et un modèle servi par Ollama.
 
-Premier des deux microservices du projet. Le second, **MarsaTrack AI**, couvre la
-gestion opérationnelle portuaire et la vision par ordinateur. Les deux sont
-indépendants : bases de données, dépôts et cycles de vie distincts.
-
 > **Le canal conversationnel est WhatsApp uniquement.** L'interface web sert à
 > l'administration (bots, documents, paramètres) ; elle ne contient pas de
 > fenêtre de discussion.
+
+---
+
+## Place dans MarsaPort AI
+
+MarsaPort AI est le **produit**, destiné à Marsa Maroc, terminal à conteneurs de
+Casablanca. Il n'a pas de dépôt à lui : il se compose de deux modules,
+développés et déployés dans **deux dépôts distincts**.
+
+| Module | Rôle | Dépôt |
+|---|---|---|
+| **MarsaBot Factory** | assistants WhatsApp, base de connaissances, moteur de génération | **ce dépôt** |
+| **MarsaTrack AI** | gestion opérationnelle, reconnaissance visuelle, et la coquille du portail | [`MarsaTrack_AI`](https://github.com/AyaFetheddine/MarsaTrack_AI) |
+
+**Aucune fusion de code n'a eu lieu.** Chaque module garde son dépôt, son
+backend et sa base de données. Ce que l'utilisateur perçoit comme une seule
+application vient de trois liaisons : un cadre qui affiche cette console dans le
+portail, une session partagée entre les deux interfaces, et un appel HTTP en
+lecture seule entre les deux serveurs. Les trois sont décrites plus bas.
+
+Ce README décrit donc **ce dépôt**, et les liaisons qu'il porte. La gestion
+opérationnelle et la reconnaissance visuelle sont documentées dans l'autre.
 
 ---
 
